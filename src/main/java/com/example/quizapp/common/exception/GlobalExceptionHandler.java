@@ -17,7 +17,7 @@ import java.util.Map;
 @Slf4j
 public class GlobalExceptionHandler {
 
-//    Handle ResourceNotFoundException
+    //    Handle ResourceNotFoundException
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleResourceNotFoundException(
             ResourceNotFoundException ex, WebRequest request) {
@@ -51,6 +51,74 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
     }
 
+//    Handle QuizAlreadyExistsException
+    @ExceptionHandler(QuizAlreadyExistsException.class)
+    public ResponseEntity<ErrorResponse> handleQuizAlreadyExistsException(
+            QuizAlreadyExistsException ex, WebRequest request) {
+        log.error("Quiz already exists: {}", ex.getMessage());
+
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.CONFLICT.value())
+                .error(HttpStatus.CONFLICT.getReasonPhrase())
+                .message(ex.getMessage())
+                .path(request.getDescription(false).replace("uri=", ""))
+                .build();
+
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(errorResponse);
+    }
+
+//    Handle InvalidQuestionTypeException
+    @ExceptionHandler(InvalidQuestionTypeException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidQuestionTypeException(
+            InvalidQuestionTypeException ex, WebRequest request) {
+        log.error("Invalid question type: {}", ex.getMessage());
+
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.BAD_REQUEST.value())
+                .error(HttpStatus.BAD_REQUEST.getReasonPhrase())
+                .message(ex.getMessage())
+                .path(request.getDescription(false).replace("uri=", ""))
+                .build();
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+    }
+
+//    Handle InvalidAnswerFormatException
+    @ExceptionHandler(InvalidAnswerFormatException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidAnswerFormatException(
+            InvalidAnswerFormatException ex, WebRequest request) {
+        log.error("Invalid answer format: {}", ex.getMessage());
+
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.BAD_REQUEST.value())
+                .error(HttpStatus.BAD_REQUEST.getReasonPhrase())
+                .message(ex.getMessage())
+                .path(request.getDescription(false).replace("uri=", ""))
+                .build();
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+    }
+
+//    Handle GameSessionExpiredException
+    @ExceptionHandler(GameSessionExpiredException.class)
+    public ResponseEntity<ErrorResponse> handleGameSessionExpiredException(
+            GameSessionExpiredException ex, WebRequest request) {
+        log.error("Game session expired: {}", ex.getMessage());
+
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.GONE.value())
+                .error(HttpStatus.GONE.getReasonPhrase())
+                .message(ex.getMessage())
+                .path(request.getDescription(false).replace("uri=", ""))
+                .build();
+
+        return ResponseEntity.status(HttpStatus.GONE).body(errorResponse);
+    }
+
 //    Handle validation errors
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleValidationExceptions(
@@ -76,7 +144,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
     }
 
-//    Handle all other exceptions
+    //    Handle all other exceptions
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGlobalException(
             Exception ex, WebRequest request) {
