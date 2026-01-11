@@ -1,5 +1,7 @@
 package com.example.quizapp.question;
 
+import com.example.quizapp.common.exception.QuestionNotFoundException;
+import com.example.quizapp.common.exception.QuizNotFoundException;
 import com.example.quizapp.common.exception.ResourceNotFoundException;
 import com.example.quizapp.quiz.Quiz;
 import com.example.quizapp.quiz.QuizRepository;
@@ -14,9 +16,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Service for Question business logic with type-specific validation
- */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -28,9 +27,7 @@ public class QuestionService {
     private final QuestionMapper questionMapper;
     private final ObjectMapper objectMapper;
 
-    /**
-     * Get all questions for a quiz
-     */
+//    Get all questions for a quiz
     public List<QuestionDto> getQuestionsByQuizId(Long quizId) {
         log.info("Fetching questions for quiz id: {}", quizId);
         List<Question> questions = questionRepository.findByQuizIdAndActiveTrue(quizId);
@@ -40,9 +37,7 @@ public class QuestionService {
                 .toList();
     }
 
-    /**
-     * Get questions ordered by position
-     */
+//    Get questions ordered by position
     public List<QuestionDto> getQuestionsOrderedByPosition(Long quizId) {
         log.info("Fetching ordered questions for quiz id: {}", quizId);
         List<Question> questions = questionRepository.findByQuizIdOrderedByPosition(quizId);
@@ -51,22 +46,14 @@ public class QuestionService {
                 .toList();
     }
 
-    /**
-     * Get question by ID
-     */
+//    Get question by ID
     public QuestionDto getQuestionById(Long id) {
         log.info("Fetching question with id: {}", id);
-        Question question = questionRepository.findById(id)
-                .orElseThrow(() -> {
-                    log.error("Question not found with id: {}", id);
-                    return new ResourceNotFoundException("Question not found with id: " + id);
-                });
+        Question question = questionExists(id);
         return questionMapper.toDto(question);
     }
 
-    /**
-     * Create new question with type-specific validation
-     */
+//    Create new question with type-specific validation
     @Transactional
     public QuestionDto createQuestion(QuestionDto questionDto) {
         log.info("Creating new question for quiz id: {}", questionDto.getQuizId());
@@ -75,7 +62,7 @@ public class QuestionService {
         Quiz quiz = quizRepository.findById(questionDto.getQuizId())
                 .orElseThrow(() -> {
                     log.error("Quiz not found with id: {}", questionDto.getQuizId());
-                    return new ResourceNotFoundException("Quiz not found with id: " + questionDto.getQuizId());
+                    return new QuizNotFoundException(questionDto.getQuizId());
                 });
 
         // Validate question based on type
@@ -97,18 +84,12 @@ public class QuestionService {
         return questionMapper.toDto(savedQuestion);
     }
 
-    /**
-     * Update existing question
-     */
+//    Update existing question
     @Transactional
     public QuestionDto updateQuestion(Long id, QuestionDto questionDto) {
         log.info("Updating question with id: {}", id);
 
-        Question existingQuestion = questionRepository.findById(id)
-                .orElseThrow(() -> {
-                    log.error("Question not found with id: {}", id);
-                    return new ResourceNotFoundException("Question not found with id: " + id);
-                });
+        Question existingQuestion = questionExists(id);
 
         // Validate question based on type
         validateQuestionByType(questionDto);
@@ -131,73 +112,52 @@ public class QuestionService {
         return questionMapper.toDto(updatedQuestion);
     }
 
-    /**
-     * Delete question (soft delete)
-     */
+//    Delete question (soft delete)
     @Transactional
     public void deleteQuestion(Long id) {
         log.info("Deleting question with id: {}", id);
 
-        Question question = questionRepository.findById(id)
-                .orElseThrow(() -> {
-                    log.error("Question not found with id: {}", id);
-                    return new ResourceNotFoundException("Question not found with id: " + id);
-                });
+        Question question = questionExists(id);
 
         question.setActive(false);
         questionRepository.save(question);
         log.info("Question soft-deleted successfully: {}", question.getId());
     }
 
-    /**
-     * Permanently delete question
-     */
+//    Permanently delete question
     @Transactional
     public void permanentlyDeleteQuestion(Long id) {
         log.info("Permanently deleting question with id: {}", id);
 
-        if (!questionRepository.existsById(id)) {
-            log.error("Question not found with id: {}", id);
-            throw new ResourceNotFoundException("Question not found with id: " + id);
-        }
+        questionExists(id);
 
         questionRepository.deleteById(id);
         log.info("Question permanently deleted with id: {}", id);
     }
 
-    /**
-     * Count questions in a quiz
-     */
+//    Count questions in a quiz
     public long countQuestions(Long quizId) {
         long count = questionRepository.countByQuizIdAndActiveTrue(quizId);
         log.debug("Quiz {} has {} questions", quizId, count);
         return count;
     }
 
-    /**
-     * Get total points for a quiz
-     */
+//    Get total points for a quiz
     public int getTotalPoints(Long quizId) {
         Integer total = questionRepository.getTotalPointsByQuizId(quizId);
         return total != null ? total : 0;
     }
 
-    /**
-     * Validate answer for a question
-     * Returns true if answer is correct
-     */
+//    Validate answer for a question
+//    Returns true if answer is correct
     public boolean validateAnswer(Long questionId, String userAnswer) {
         log.info("Validating answer for question id: {}", questionId);
 
-        Question question = questionRepository.findById(questionId)
-                .orElseThrow(() -> new ResourceNotFoundException("Question not found with id: " + questionId));
-
+        Question question = questionExists(questionId);
         return validateAnswerByType(question, userAnswer);
     }
 
-    /**
-     * Type-specific validation for question creation/update
-     */
+//    Type-specific validation for question creation/update
     private void validateQuestionByType(QuestionDto questionDto) {
         QuestionType type = questionDto.getQuestionType();
         String answerOptions = questionDto.getAnswerOptions();
@@ -222,9 +182,7 @@ public class QuestionService {
         }
     }
 
-    /**
-     * Validate Single Choice / Dropdown question
-     */
+//    Validate Single Choice / Dropdown question
     private void validateSingleChoiceQuestion(String answerOptions, String correctAnswer) throws JsonProcessingException {
         List<String> options = objectMapper.readValue(answerOptions, new TypeReference<>() {});
 
@@ -238,9 +196,7 @@ public class QuestionService {
         }
     }
 
-    /**
-     * Validate Multiple Choice question
-     */
+//    Validate Multiple Choice question
     private void validateMultipleChoiceQuestion(String answerOptions, String correctAnswer) throws JsonProcessingException {
         List<String> options = objectMapper.readValue(answerOptions, new TypeReference<>() {});
         List<Integer> correctIndexes = objectMapper.readValue(correctAnswer, new TypeReference<>() {});
@@ -260,9 +216,7 @@ public class QuestionService {
         }
     }
 
-    /**
-     * Validate True/False question
-     */
+//    Validate True/False question
     private void validateTrueFalseQuestion(String answerOptions, String correctAnswer) throws JsonProcessingException {
         List<String> options = objectMapper.readValue(answerOptions, new TypeReference<>() {});
 
@@ -276,18 +230,14 @@ public class QuestionService {
         }
     }
 
-    /**
-     * Validate Short Answer question
-     */
+//    Validate Short Answer question
     private void validateShortAnswerQuestion(String correctAnswer) {
         if (correctAnswer == null || correctAnswer.trim().isEmpty()) {
             throw new IllegalArgumentException("Short answer question must have a correct answer");
         }
     }
 
-    /**
-     * Validate Fill Blanks question
-     */
+//    Validate Fill Blanks question
     private void validateFillBlanksQuestion(String answerOptions, String correctAnswer) throws JsonProcessingException {
         List<String> blanks = objectMapper.readValue(answerOptions, new TypeReference<>() {});
         List<String> answers = objectMapper.readValue(correctAnswer, new TypeReference<>() {});
@@ -305,9 +255,7 @@ public class QuestionService {
         }
     }
 
-    /**
-     * Validate Sorting question
-     */
+//    Validate Sorting question
     private void validateSortingQuestion(String answerOptions, String correctAnswer) throws JsonProcessingException {
         List<String> items = objectMapper.readValue(answerOptions, new TypeReference<>() {});
         List<Integer> correctOrder = objectMapper.readValue(correctAnswer, new TypeReference<>() {});
@@ -321,9 +269,7 @@ public class QuestionService {
         }
     }
 
-    /**
-     * Validate Matching question
-     */
+//    Validate Matching question
     private void validateMatchingQuestion(String answerOptions, String correctAnswer) throws JsonProcessingException {
         List<Map<String, String>> pairs = objectMapper.readValue(answerOptions, new TypeReference<>() {});
         List<Map<String, String>> correctPairs = objectMapper.readValue(correctAnswer, new TypeReference<>() {});
@@ -337,9 +283,7 @@ public class QuestionService {
         }
     }
 
-    /**
-     * Type-specific answer validation
-     */
+//    Type-specific answer validation
     private boolean validateAnswerByType(Question question, String userAnswer) {
         try {
             return switch (question.getQuestionType()) {
@@ -403,5 +347,13 @@ public class QuestionService {
         if (correct.size() != user.size()) return false;
 
         return correct.containsAll(user) && user.containsAll(correct);
+    }
+
+    private Question questionExists(Long questionId) {
+        return questionRepository.findById(questionId)
+                .orElseThrow(() -> {
+                    log.error("Question not found with id: {}", questionId);
+                    return new QuestionNotFoundException(questionId);
+                });
     }
 }

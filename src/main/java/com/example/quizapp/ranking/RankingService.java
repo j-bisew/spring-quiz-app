@@ -1,5 +1,6 @@
 package com.example.quizapp.ranking;
 
+import com.example.quizapp.common.exception.QuizNotFoundException;
 import com.example.quizapp.common.exception.ResourceNotFoundException;
 import com.example.quizapp.game.GameResult;
 import com.example.quizapp.game.GameResultRepository;
@@ -170,6 +171,6 @@ public class RankingService {
 
     private Quiz quizExists(Long quizId) {
         return quizRepository.findById(quizId)
-                .orElseThrow(() -> new ResourceNotFoundException("Quiz not found with id: " + quizId));
+                .orElseThrow(() -> new QuizNotFoundException(quizId));
     }
 }

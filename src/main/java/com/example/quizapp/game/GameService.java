@@ -1,5 +1,7 @@
 package com.example.quizapp.game;
 
+import com.example.quizapp.common.exception.PlayerNotFoundException;
+import com.example.quizapp.common.exception.QuizNotFoundException;
 import com.example.quizapp.common.exception.ResourceNotFoundException;
 import com.example.quizapp.player.Player;
 import com.example.quizapp.player.PlayerRepository;
@@ -21,9 +23,6 @@ import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
-/**
- * Service for game session management and gameplay logic
- */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -44,12 +43,7 @@ public class GameService {
     public StartGameResponse startGame(StartGameRequest request) {
         log.info("Starting game for quiz {} with player {}", request.getQuizId(), request.getPlayerNickname());
 
-        // Get quiz with questions
-        Quiz quiz = quizRepository.findByIdWithQuestions(request.getQuizId())
-                .orElseThrow(() -> {
-                    log.error("Quiz not found with id: {}", request.getQuizId());
-                    return new ResourceNotFoundException("Quiz not found with id: " + request.getQuizId());
-                });
+        Quiz quiz = quizExists(request.getQuizId());
 
         if (!quiz.isActive()) {
             throw new IllegalArgumentException("Quiz is not active");
@@ -119,12 +113,11 @@ public class GameService {
         log.info("Submitting answers for session: {}", request.getSessionId());
 
         // Verify quiz exists
-        Quiz quiz = quizRepository.findByIdWithQuestions(request.getQuizId())
-                .orElseThrow(() -> new ResourceNotFoundException("Quiz not found with id: " + request.getQuizId()));
+        Quiz quiz = quizExists(request.getQuizId());
 
         // Verify player exists
         Player player = playerRepository.findById(request.getPlayerId())
-                .orElseThrow(() -> new ResourceNotFoundException("Player not found with id: " + request.getPlayerId()));
+                .orElseThrow(() -> new PlayerNotFoundException(request.getPlayerId()));
 
         // Get all questions
         List<Question> questions = quiz.getQuestions().stream()
@@ -367,8 +360,7 @@ public class GameService {
     public GameStatisticsDto getQuizStatistics(Long quizId) {
         log.info("Getting statistics for quiz: {}", quizId);
 
-        Quiz quiz = quizRepository.findById(quizId)
-                .orElseThrow(() -> new ResourceNotFoundException("Quiz not found with id: " + quizId));
+        Quiz quiz = quizExists(quizId);
 
         long totalAttempts = gameResultRepository.countByQuizIdAndCompletedTrue(quizId);
         long passedAttempts = gameResultRepository.countPassedAttempts(quizId);
@@ -391,5 +383,10 @@ public class GameService {
                 .lowestScore(lowestScore != null ? lowestScore : 0)
                 .maxScore(quiz.getTotalPoints())
                 .build();
+    }
+
+    private Quiz quizExists(Long quizId) {
+        return quizRepository.findById(quizId)
+                .orElseThrow(() -> new QuizNotFoundException(quizId));
     }
 }

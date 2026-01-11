@@ -1,6 +1,8 @@
 package com.example.quizapp.quiz;
 
+import com.example.quizapp.common.exception.QuestionNotFoundException;
 import com.example.quizapp.common.exception.ResourceNotFoundException;
+import com.example.quizapp.question.Question;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -49,11 +51,7 @@ public class QuizService {
      */
     public QuizDto getQuizById(Long id) {
         log.info("Fetching quiz with id: {}", id);
-        Quiz quiz = quizRepository.findById(id)
-                .orElseThrow(() -> {
-                    log.error("Quiz not found with id: {}", id);
-                    return new ResourceNotFoundException("Quiz not found with id: " + id);
-                });
+        Quiz quiz = quizExists(id);
         log.debug("Found quiz: {}", quiz.getTitle());
         return quizMapper.toDto(quiz);
     }
@@ -63,11 +61,7 @@ public class QuizService {
      */
     public QuizDto getQuizByIdWithQuestions(Long id) {
         log.info("Fetching quiz with questions, id: {}", id);
-        Quiz quiz = quizRepository.findByIdWithQuestions(id)
-                .orElseThrow(() -> {
-                    log.error("Quiz not found with id: {}", id);
-                    return new ResourceNotFoundException("Quiz not found with id: " + id);
-                });
+        Quiz quiz = quizExists(id);
         log.debug("Found quiz with {} questions: {}", quiz.getQuestions().size(), quiz.getTitle());
         return quizMapper.toDto(quiz);
     }
@@ -101,11 +95,7 @@ public class QuizService {
     public QuizDto updateQuiz(Long id, QuizDto quizDto) {
         log.info("Updating quiz with id: {}", id);
 
-        Quiz existingQuiz = quizRepository.findById(id)
-                .orElseThrow(() -> {
-                    log.error("Quiz not found with id: {}", id);
-                    return new ResourceNotFoundException("Quiz not found with id: " + id);
-                });
+        Quiz existingQuiz = quizExists(id);
 
         // Check if title is being changed to an existing title
         if (!existingQuiz.getTitle().equals(quizDto.getTitle()) &&
@@ -137,11 +127,7 @@ public class QuizService {
     public void deleteQuiz(Long id) {
         log.info("Deleting quiz with id: {}", id);
 
-        Quiz quiz = quizRepository.findById(id)
-                .orElseThrow(() -> {
-                    log.error("Quiz not found with id: {}", id);
-                    return new ResourceNotFoundException("Quiz not found with id: " + id);
-                });
+        Quiz quiz = quizExists(id);
 
         quiz.setActive(false);
         quizRepository.save(quiz);
@@ -155,10 +141,7 @@ public class QuizService {
     public void permanentlyDeleteQuiz(Long id) {
         log.info("Permanently deleting quiz with id: {}", id);
 
-        if (!quizRepository.existsById(id)) {
-            log.error("Quiz not found with id: {}", id);
-            throw new ResourceNotFoundException("Quiz not found with id: " + id);
-        }
+        quizExists(id);
 
         quizRepository.deleteById(id);
         log.info("Quiz permanently deleted with id: {}", id);
@@ -205,5 +188,13 @@ public class QuizService {
         long count = quizRepository.countByActiveTrue();
         log.debug("Total active quizzes: {}", count);
         return count;
+    }
+
+    private Quiz quizExists(Long quizId) {
+        return quizRepository.findById(quizId)
+                .orElseThrow(() -> {
+                    log.error("Question not found with id: {}", quizId);
+                    return new QuestionNotFoundException(quizId);
+                });
     }
 }
