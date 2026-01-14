@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout}"
+      xml:lang="en">
+<head>
+    <title>Start Quiz</title>
+</head>
+<body>
+    <div layout:fragment="content">
+        <div class="row justify-content-center">
+            <div class="col-md-8 col-lg-6">
+                <div class="card">
+                    <div class="card-body p-5">
+                        <div class="text-center mb-4">
+                            <i class="bi bi-trophy-fill display-1 text-primary"></i>
+                            <h2 class="mt-3" th:text="${quiz.title}">Quiz Title</h2>
+                            <p class="text-muted" th:text="${quiz.description}">Quiz description</p>
+                        </div>
+
+                        <!-- Quiz Info -->
+                        <div class="alert alert-info">
+                            <div class="row text-center">
+                                <div class="col-4">
+                                    <i class="bi bi-question-circle display-6"></i>
+                                    <p class="mb-0 mt-2">
+                                        <strong th:text="${quiz.questionCount}">10</strong><br>
+                                        <small>Questions</small>
+                                    </p>
+                                </div>
+                                <div class="col-4">
+                                    <i class="bi bi-trophy display-6"></i>
+                                    <p class="mb-0 mt-2">
+                                        <strong th:text="${quiz.totalPoints}">100</strong><br>
+                                        <small>Max Points</small>
+                                    </p>
+                                </div>
+                                <div class="col-4" th:if="${quiz.timeLimitMinutes}">
+                                    <i class="bi bi-clock display-6"></i>
+                                    <p class="mb-0 mt-2">
+                                        <strong th:text="${quiz.timeLimitMinutes}">30</strong><br>
+                                        <small>Minutes</small>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Player Name Form -->
+                        <form method="post" th:action="@{/game/start/{id}(id=${quiz.id})}" th:object="${playerForm}">
+                            <div class="mb-3">
+                                <label for="nickname" class="form-label">
+                                    <i class="bi bi-person-fill"></i> Your Nickname
+                                </label>
+                                <input type="text" class="form-control form-control-lg" 
+                                       id="nickname" th:field="*{nickname}" 
+                                       placeholder="Enter your nickname" required>
+                                <div class="invalid-feedback" th:if="${#fields.hasErrors('nickname')}" 
+                                     th:errors="*{nickname}">
+                                    Nickname error
+                                </div>
+                                <div class="form-text">
+                                    This name will appear on the leaderboard
+                                </div>
+                            </div>
+
+                            <div class="d-grid gap-2">
+                                <button type="submit" class="btn btn-primary btn-lg">
+                                    <i class="bi bi-play-fill"></i> Start Quiz
+                                </button>
+                                <a th:href="@{/quizzes}" class="btn btn-outline-secondary">
+                                    <i class="bi bi-arrow-left"></i> Back to Quizzes
+                                </a>
+                            </div>
+                        </form>
+
+                        <!-- Quiz Settings -->
+                        <div class="mt-4 pt-4 border-top">
+                            <h6 class="text-muted mb-3">Quiz Settings:</h6>
+                            <ul class="list-unstyled small">
+                                <li th:if="${quiz.randomQuestionOrder}">
+                                    <i class="bi bi-shuffle text-primary"></i> Questions in random order
+                                </li>
+                                <li th:if="${quiz.randomAnswerOrder}">
+                                    <i class="bi bi-shuffle text-primary"></i> Answers in random order
+                                </li>
+                                <li th:if="${quiz.negativePointsEnabled}">
+                                    <i class="bi bi-dash-circle text-warning"></i> Negative points for wrong answers
+                                </li>
+                                <li th:if="${quiz.backButtonBlocked}">
+                                    <i class="bi bi-lock text-danger"></i> Cannot go back to previous questions
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
