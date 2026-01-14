@@ -13,7 +13,6 @@ import java.util.Optional;
 
 @Repository
 public interface GameResultRepository extends JpaRepository<GameResult, Long> {
-
 //    Find all results for a specific quiz
     List<GameResult> findByQuizIdAndCompletedTrue(Long quizId);
 
@@ -67,4 +66,7 @@ public interface GameResultRepository extends JpaRepository<GameResult, Long> {
 //    Get player's best score for a quiz
     @Query("SELECT MAX(gr.score) FROM GameResult gr WHERE gr.quiz.id = :quizId AND gr.player.id = :playerId AND gr.completed = true")
     Integer getPlayerBestScore(@Param("quizId") Long quizId, @Param("playerId") Long playerId);
+
+//    Count all completed games
+    long countByCompletedTrue();
 }
