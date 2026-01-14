@@ -1,5 +1,7 @@
 package com.example.quizapp.question;
 
+import com.example.quizapp.common.validation.ValidJson;
+import com.example.quizapp.common.validation.ValidQuestionType;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import jakarta.validation.constraints.*;
 import lombok.AllArgsConstructor;
@@ -7,9 +9,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/**
- * DTO for Question entity
- */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -20,6 +19,7 @@ public class QuestionDto {
     private Long id;
 
     @NotNull(message = "Question type is required")
+    @ValidQuestionType
     private QuestionType questionType;
 
     @NotBlank(message = "Question text is required")
@@ -42,9 +42,11 @@ public class QuestionDto {
     private Integer timeLimitSeconds;
 
     @NotBlank(message = "Answer options are required")
+    @ValidJson(message = "Answer options must be valid JSON")
     private String answerOptions;
 
     @NotBlank(message = "Correct answer is required")
+    @ValidJson(message = "Correct answer must be valid JSON")
     private String correctAnswer;
 
     @Size(max = 1000, message = "Explanation must not exceed 1000 characters")

@@ -1,5 +1,6 @@
 package com.example.quizapp.quiz;
 
+import com.example.quizapp.common.validation.ValidTimeLimit;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -29,6 +30,7 @@ public class QuizDto {
 
     private boolean randomAnswerOrder;
 
+    @ValidTimeLimit(min = 1, max = 300, message = "Time limit must be between 1 and 300 minutes")
     private Integer timeLimitMinutes;
 
     private boolean negativePointsEnabled;
