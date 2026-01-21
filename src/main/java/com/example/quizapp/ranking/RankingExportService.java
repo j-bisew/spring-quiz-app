@@ -147,7 +147,7 @@ public class RankingExportService {
                 table.addCell(new Cell().add(new Paragraph(String.valueOf(ranking.getWrongAnswers()))));
                 table.addCell(new Cell().add(new Paragraph(String.valueOf(ranking.getTotalQuestions()))));
                 table.addCell(new Cell().add(new Paragraph(
-                        ranking.getTimeTakenSeconds() != null ? String.valueOf(ranking.getTimeTakenSeconds()) + "s" : "N/A"
+                        ranking.getTimeTakenSeconds() != null ? ranking.getTimeTakenSeconds() + "s" : "N/A"
                 )));
                 table.addCell(new Cell().add(new Paragraph(ranking.getGrade())));
             }
