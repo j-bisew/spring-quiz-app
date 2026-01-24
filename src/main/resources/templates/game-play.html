@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout}">
+<head>
+    <title>Playing Quiz</title>
+</head>
+<body>
+<div layout:fragment="content">
+    <div class="container mt-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2 th:text="${quizTitle}">Quiz Title</h2>
+            <div id="timer" class="h4 text-danger" th:if="${timeLimit != null}">
+                <i class="bi bi-clock"></i> <span id="timeRemaining">--:--</span>
+            </div>
+        </div>
+
+        <form th:action="@{/game/submit}" th:object="${gameForm}" method="post" id="quizForm">
+            <input type="hidden" th:field="*{sessionId}"/>
+            <input type="hidden" th:field="*{quizId}"/>
+            <input type="hidden" th:field="*{playerId}"/>
+
+            <div class="card mb-4" th:each="question, stat : ${questions}">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">
+                        <span class="badge bg-primary me-2" th:text="${stat.count}">1</span>
+                        <span th:text="${question.questionText}">Treść pytania</span>
+                    </h5>
+                    <small class="text-muted" th:text="${question.points} + ' pkt'">10 pkt</small>
+                </div>
+                <div class="card-body">
+                    <input type="hidden" th:field="*{answers[__${stat.index}__].questionId}" th:value="${question.id}"/>
+
+                    <div th:if="${question.questionType.name() == 'SINGLE_CHOICE' or question.questionType.name() == 'TRUE_FALSE'}">
+                        <p class="text-muted small">Wpisz odpowiedź (lub wybierz opcję jeśli zaimplementowano parsowanie JSON):</p>
+                        <input type="text" class="form-control" th:field="*{answers[__${stat.index}__].userAnswer}" required>
+                    </div>
+
+                    <div th:if="${question.questionType.name() == 'SHORT_ANSWER'}">
+                        <input type="text" class="form-control" th:field="*{answers[__${stat.index}__].userAnswer}" placeholder="Twoja odpowiedź..." required>
+                    </div>
+
+                    <div th:unless="${question.questionType.name() == 'SHORT_ANSWER' or question.questionType.name() == 'SINGLE_CHOICE' or question.questionType.name() == 'TRUE_FALSE'}">
+                        <p class="text-muted">Wpisz odpowiedź w formacie JSON (np. ["odp1", "odp2"])</p>
+                        <textarea class="form-control" th:field="*{answers[__${stat.index}__].userAnswer}" rows="2"></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-grid gap-2 mb-5">
+                <button type="submit" class="btn btn-success btn-lg">Zakończ i sprawdź</button>
+            </div>
+        </form>
+    </div>
+
+    <script th:if="${timeLimit != null}" th:inline="javascript">
+        let minutes = [[${timeLimit}]];
+        let seconds = minutes * 60;
+        const timerDisplay = document.getElementById('timeRemaining');
+
+        const interval = setInterval(() => {
+            seconds--;
+            const m = Math.floor(seconds / 60);
+            const s = seconds % 60;
+            timerDisplay.textContent = `${m}:${s < 10 ? '0' : ''}${s}`;
+
+            if (seconds <= 0) {
+                clearInterval(interval);
+                alert("Czas minął!");
+                document.getElementById('quizForm').submit();
+            }
+        }, 1000);
+    </script>
+</div>
+</body>
+</html>
