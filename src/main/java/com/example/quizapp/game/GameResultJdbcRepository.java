@@ -55,7 +55,7 @@ public class GameResultJdbcRepository {
                     END as grade
                 FROM game_results gr
                 JOIN quizzes q ON gr.quiz_id = q.id
-                WHERE gr.player_id = ? AND gr.completed = true
+                WHERE gr.player_id = ? AND gr.is_completed = true
                 ORDER BY gr.completed_at DESC
                 """;
 
@@ -76,7 +76,7 @@ public class GameResultJdbcRepository {
                 FROM game_results gr
                 JOIN players p ON gr.player_id = p.id
                 WHERE gr.quiz_id = ? 
-                AND gr.completed = true
+                AND gr.is_completed = true
                 AND gr.percentage_score < 50
                 ORDER BY gr.completed_at DESC
                 """;
@@ -100,8 +100,8 @@ public class GameResultJdbcRepository {
                         ELSE 'Below Average'
                     END as performance
                 FROM game_results gr
-                JOIN game_results gr2 ON gr.quiz_id = gr2.quiz_id AND gr2.completed = true
-                WHERE gr.id = ? AND gr.completed = true
+                JOIN game_results gr2 ON gr.quiz_id = gr2.quiz_id AND gr2.is_completed = true
+                WHERE gr.id = ? AND gr.is_completed = true
                 LIMIT 1
                 """;
 
@@ -113,26 +113,31 @@ public class GameResultJdbcRepository {
         log.debug("Analyzing completion rate by quiz difficulty");
 
         String sql = """
-                SELECT 
-                    CASE 
-                        WHEN q.time_limit_minutes <= 10 THEN 'Easy'
-                        WHEN q.time_limit_minutes <= 30 THEN 'Medium'
-                        ELSE 'Hard'
-                    END as difficulty,
-                    COUNT(*) as total_attempts,
-                    COUNT(CASE WHEN gr.percentage_score >= 50 THEN 1 END) as passed,
-                    ROUND(100.0 * COUNT(CASE WHEN gr.percentage_score >= 50 THEN 1 END) / COUNT(*), 2) as pass_rate
-                FROM game_results gr
-                JOIN quizzes q ON gr.quiz_id = q.id
-                WHERE gr.completed = true
-                GROUP BY difficulty
-                ORDER BY 
-                    CASE difficulty
-                        WHEN 'Easy' THEN 1
-                        WHEN 'Medium' THEN 2
-                        WHEN 'Hard' THEN 3
-                    END
-                """;
+            SELECT
+                CASE
+                    WHEN q.time_limit_minutes <= 10 THEN 'Easy'
+                    WHEN q.time_limit_minutes <= 30 THEN 'Medium'
+                    ELSE 'Hard'
+                END as difficulty,
+                COUNT(*) as total_attempts,
+                COUNT(CASE WHEN gr.percentage_score >= 50 THEN 1 END) as passed,
+                ROUND(100.0 * COUNT(CASE WHEN gr.percentage_score >= 50 THEN 1 END) / COUNT(*), 2) as pass_rate
+            FROM game_results gr
+            JOIN quizzes q ON gr.quiz_id = q.id
+            WHERE gr.is_completed = true
+            GROUP BY
+                CASE
+                    WHEN q.time_limit_minutes <= 10 THEN 'Easy'
+                    WHEN q.time_limit_minutes <= 30 THEN 'Medium'
+                    ELSE 'Hard'
+                END
+            ORDER BY
+                CASE
+                    WHEN q.time_limit_minutes <= 10 THEN 'Easy'
+                    WHEN q.time_limit_minutes <= 30 THEN 'Medium'
+                    ELSE 'Hard'
+                END
+            """;
 
         return jdbcTemplate.queryForList(sql);
     }
@@ -151,7 +156,7 @@ public class GameResultJdbcRepository {
                     MAX(gr.score) as best_score,
                     p.last_played_at
                 FROM players p
-                JOIN game_results gr ON p.id = gr.player_id AND gr.completed = true
+                JOIN game_results gr ON p.id = gr.player_id AND gr.is_completed = true
                 GROUP BY p.id, p.nickname, p.last_played_at
                 HAVING COUNT(gr.id) >= ?
                 ORDER BY total_games DESC, avg_percentage DESC
@@ -166,14 +171,14 @@ public class GameResultJdbcRepository {
 
         String sql = """
                 SELECT 
-                    EXTRACT(HOUR FROM completed_at) as hour,
+                    EXTRACT(HOUR FROM completed_at) as completed_hour,
                     COUNT(*) as games_count,
                     ROUND(AVG(score), 2) as avg_score
                 FROM game_results
-                WHERE completed = true
-                AND completed_at >= CURRENT_DATE - INTERVAL '7 days'
-                GROUP BY hour
-                ORDER BY hour
+                WHERE is_completed = true
+                AND completed_at >= DATEADD('DAY', -7, CURRENT_DATE) 
+                GROUP BY EXTRACT(HOUR FROM completed_at)
+                ORDER BY completed_hour
                 """;
 
         return jdbcTemplate.queryForList(sql);
@@ -212,13 +217,13 @@ public class GameResultJdbcRepository {
     public List<Map<String, Object>> getCompletionTrend() {
         String sql = """
                 SELECT 
-                    DATE(completed_at) as date,
+                    CAST(completed_at AS DATE) as date,
                     COUNT(*) as completions,
                     COUNT(CASE WHEN percentage_score >= 50 THEN 1 END) as passed
                 FROM game_results
-                WHERE completed = true
-                AND completed_at >= CURRENT_DATE - INTERVAL '30 days'
-                GROUP BY DATE(completed_at)
+                WHERE is_completed = true
+                AND completed_at >= DATEADD('DAY', -30, CURRENT_DATE)
+                GROUP BY CAST(completed_at AS DATE)
                 ORDER BY date
                 """;
 

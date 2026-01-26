@@ -2,6 +2,7 @@ package com.example.quizapp.quiz;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
@@ -9,8 +10,10 @@ import org.springframework.stereotype.Repository;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Repository
 @RequiredArgsConstructor
@@ -53,9 +56,11 @@ public class QuizJdbcRepository {
     public List<Quiz> findByTitleContaining(String keyword) {
         log.debug("Finding quizzes by title containing: {}", keyword);
 
-        String sql = "SELECT * FROM quizzes WHERE title ILIKE ? AND active = true ORDER BY created_at DESC";
+        String sql = "SELECT * FROM quizzes WHERE LOWER(title) LIKE LOWER(?) AND is_active = true ORDER BY created_at DESC";
 
-        return jdbcTemplate.query(sql, new QuizRowMapper(), "%" + keyword + "%");
+        String searchPattern = "%" + keyword + "%";
+
+        return jdbcTemplate.query(sql, new BeanPropertyRowMapper<>(Quiz.class), searchPattern);
     }
 
 //    Get quiz statistics using complex SQL
@@ -76,7 +81,7 @@ public class QuizJdbcRepository {
                     ROUND(100.0 * COUNT(CASE WHEN gr.percentage_score >= 50 THEN 1 END) / 
                           NULLIF(COUNT(*), 0), 2) as pass_rate
                 FROM quizzes q
-                LEFT JOIN game_results gr ON q.id = gr.quiz_id AND gr.completed = true
+                LEFT JOIN game_results gr ON q.id = gr.quiz_id AND gr.is_completed = true
                 WHERE q.id = ?
                 GROUP BY q.id, q.title
                 """;
@@ -99,7 +104,7 @@ public class QuizJdbcRepository {
                     RANK() OVER (ORDER BY gr.score DESC, gr.time_taken_seconds ASC) as rank
                 FROM game_results gr
                 JOIN players p ON gr.player_id = p.id
-                WHERE gr.quiz_id = ? AND gr.completed = true
+                WHERE gr.quiz_id = ? AND gr.is_completed = true
                 ORDER BY gr.score DESC, gr.time_taken_seconds ASC
                 LIMIT ?
                 """;
@@ -134,22 +139,28 @@ public class QuizJdbcRepository {
 
 //    Bulk update quiz active status
     public int bulkUpdateActiveStatus(List<Long> quizIds, boolean active) {
-        log.info("Bulk updating active status for {} quizzes to: {}", quizIds.size(), active);
+        String placeholders = quizIds.stream()
+                .map(id -> "?")
+                .collect(Collectors.joining(", "));
 
-        String sql = "UPDATE quizzes SET active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ANY(?)";
+        String sql = "UPDATE quizzes SET is_active = ?, updated_at = CURRENT_TIMESTAMP WHERE id IN (" + placeholders + ")";
 
-        Long[] idsArray = quizIds.toArray(new Long[0]);
-        return jdbcTemplate.update(sql, active, idsArray);
+        List<Object> params = new ArrayList<>();
+        params.add(active);
+        params.addAll(quizIds);
+
+        return jdbcTemplate.update(sql, params.toArray());
     }
 
-//    Delete old incomplete game results (cleanup)
+
+    //    Delete old incomplete game results (cleanup)
     public int deleteOldIncompleteResults(int daysOld) {
         log.info("Deleting incomplete game results older than {} days", daysOld);
 
         String sql = """
                 DELETE FROM game_results 
-                WHERE completed = false 
-                AND started_at < CURRENT_TIMESTAMP - INTERVAL '? days'
+                WHERE is_completed = false 
+                AND started_at < DATEADD('DAY', -?, CURRENT_TIMESTAMP)
                 """;
 
         return jdbcTemplate.update(sql, daysOld);
@@ -160,17 +171,17 @@ public class QuizJdbcRepository {
         log.debug("Getting quiz activity from {} to {}", startDate, endDate);
 
         String sql = """
-                SELECT 
-                    DATE(gr.completed_at) as date,
-                    COUNT(DISTINCT gr.quiz_id) as quizzes_played,
-                    COUNT(*) as total_games,
-                    COUNT(DISTINCT gr.player_id) as unique_players,
-                    ROUND(AVG(gr.score), 2) as avg_score
+                SELECT
+                    CAST(gr.completed_at AS DATE) AS com_date,
+                    COUNT(DISTINCT gr.quiz_id) AS quizzes_played,
+                    COUNT(*) AS total_games,
+                    COUNT(DISTINCT gr.player_id) AS unique_players,
+                    ROUND(AVG(gr.score), 2) AS avg_score
                 FROM game_results gr
-                WHERE gr.completed = true
-                AND gr.completed_at BETWEEN ? AND ?
-                GROUP BY DATE(gr.completed_at)
-                ORDER BY date DESC
+                WHERE gr.is_completed = true
+                  AND gr.completed_at BETWEEN ? AND ?
+                GROUP BY CAST(gr.completed_at AS DATE)
+                ORDER BY com_date DESC;
                 """;
 
         return jdbcTemplate.queryForList(sql, startDate, endDate);
@@ -192,7 +203,7 @@ public class QuizJdbcRepository {
 
 //    Count total questions across all quizzes
     public int countTotalQuestions() {
-        String sql = "SELECT COUNT(*) FROM questions WHERE active = true";
+        String sql = "SELECT COUNT(*) FROM questions WHERE is_active = true";
         Integer count = jdbcTemplate.queryForObject(sql, Integer.class);
         return count != null ? count : 0;
     }
@@ -202,7 +213,7 @@ public class QuizJdbcRepository {
         String sql = """
                 SELECT AVG(time_taken_seconds) 
                 FROM game_results 
-                WHERE quiz_id = ? AND completed = true
+                WHERE quiz_id = ? AND is_completed = true
                 """;
 
         return jdbcTemplate.queryForObject(sql, Double.class, quizId);
