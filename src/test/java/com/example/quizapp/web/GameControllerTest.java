@@ -13,6 +13,8 @@ import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.util.List;
+
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -26,11 +28,10 @@ class GameControllerTest {
     @Autowired
     private MockMvc mockMvc;
 
-    @MockitoBean // ZAMIAST @MockBean
+    @MockitoBean
     private GameService gameService;
 
-    // Mockujemy UserDetailsService, bo WebMvcTest ładuje SecurityConfig
-    @MockitoBean // ZAMIAST @MockBean
+    @MockitoBean
     private CustomUserDetailsService userDetailsService;
 
     @Autowired
@@ -73,6 +74,8 @@ class GameControllerTest {
         SubmitAnswersRequest request = SubmitAnswersRequest.builder()
                 .sessionId("sess-1")
                 .quizId(1L)
+                .playerId(1L)
+                .answers(List.of(new SubmitAnswersRequest.AnswerSubmission(1L, "Answer")))
                 .build();
         GameResultDto resultDto = GameResultDto.builder().score(10).passed(true).build();
 

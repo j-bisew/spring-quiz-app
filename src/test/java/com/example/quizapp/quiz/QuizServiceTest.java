@@ -172,7 +172,7 @@ class QuizServiceTest {
     @DisplayName("Should get quiz by ID with questions")
     void shouldGetQuizByIdWithQuestions() {
         // Given
-        when(quizRepository.findByIdWithQuestions(1L)).thenReturn(Optional.of(quiz1));
+        when(quizRepository.findById(1L)).thenReturn(Optional.of(quiz1));
         when(quizMapper.toDto(quiz1)).thenReturn(quizDto1);
 
         // When
@@ -182,7 +182,7 @@ class QuizServiceTest {
         assertThat(result).isNotNull();
         assertThat(result.getTitle()).isEqualTo("Java Quiz");
 
-        verify(quizRepository).findByIdWithQuestions(1L);
+        verify(quizRepository).findById(1L);
         verify(quizMapper).toDto(quiz1);
     }
 
@@ -375,13 +375,13 @@ class QuizServiceTest {
     @DisplayName("Should permanently delete quiz")
     void shouldPermanentlyDeleteQuiz() {
         // Given
-        when(quizRepository.existsById(1L)).thenReturn(true);
+        when(quizRepository.findById(1L)).thenReturn(Optional.of(quiz1));
 
         // When
         quizService.permanentlyDeleteQuiz(1L);
 
         // Then
-        verify(quizRepository).existsById(1L);
+        verify(quizRepository).findById(1L);
         verify(quizRepository).deleteById(1L);
     }
 
@@ -389,14 +389,14 @@ class QuizServiceTest {
     @DisplayName("Should throw exception when permanently deleting non-existent quiz")
     void shouldThrowExceptionWhenPermanentlyDeletingNonExistentQuiz() {
         // Given
-        when(quizRepository.existsById(999L)).thenReturn(false);
+        when(quizRepository.findById(999L)).thenReturn(Optional.empty());
 
         // When/Then
         assertThatThrownBy(() -> quizService.permanentlyDeleteQuiz(999L))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining("Quiz not found with id: 999");
 
-        verify(quizRepository).existsById(999L);
+        verify(quizRepository).findById(999L);
         verify(quizRepository, never()).deleteById(anyLong());
     }
 

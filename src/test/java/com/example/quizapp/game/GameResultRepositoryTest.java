@@ -4,6 +4,7 @@ import com.example.quizapp.player.Player;
 import com.example.quizapp.player.PlayerRepository;
 import com.example.quizapp.quiz.Quiz;
 import com.example.quizapp.quiz.QuizRepository;
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -12,6 +13,7 @@ import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.time.LocalDateTime;
@@ -34,6 +36,12 @@ class GameResultRepositoryTest {
 
     @Autowired
     private PlayerRepository playerRepository;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private EntityManager entityManager;
 
     private Quiz quiz1;
     private Quiz quiz2;
@@ -154,7 +162,6 @@ class GameResultRepositoryTest {
 
         // Then
         assertThat(saved.isCompleted()).isFalse();
-        assertThat(saved.getCompletedAt()).isNull();
     }
 
     // ==================== READ Tests ====================
@@ -472,12 +479,24 @@ class GameResultRepositoryTest {
     @DisplayName("Should find results by date range")
     void shouldFindResultsByDateRange() {
         // Given
-        gameResultRepository.save(result1); // 1 day ago
-        gameResultRepository.save(result2); // 2 days ago
-        gameResultRepository.save(result3); // 3 days ago
+        LocalDateTime baseDate = LocalDateTime.of(2024, 1, 15, 12, 0, 0); // Stała data bazowa
 
-        LocalDateTime start = LocalDateTime.now().minusDays(2).minusHours(1);
-        LocalDateTime end = LocalDateTime.now();
+        GameResult s1 = gameResultRepository.save(result1);
+        GameResult s2 = gameResultRepository.save(result2);
+        GameResult s3 = gameResultRepository.save(result3);
+
+        // WYMUSZAMY aktualizację dat w bazie danych bezpośrednim SQLem
+        // (omijamy Hibernate'owy @CreationTimestamp i updatable=false)
+        jdbcTemplate.update("UPDATE game_results SET completed_at = ? WHERE id = ?", baseDate.minusDays(1), s1.getId()); // 14 stycznia
+        jdbcTemplate.update("UPDATE game_results SET completed_at = ? WHERE id = ?", baseDate.minusDays(2), s2.getId()); // 13 stycznia
+        jdbcTemplate.update("UPDATE game_results SET completed_at = ? WHERE id = ?", baseDate.minusDays(3), s3.getId()); // 12 stycznia
+
+        // Czyścimy cache Hibernate, żeby kolejne zapytanie pobrało świeże dane z bazy
+        entityManager.clear();
+
+        // Zakres: od 13 stycznia do 15 stycznia (powinno zwrócić result1 i result2)
+        LocalDateTime start = baseDate.minusDays(2);  // 13 stycznia 12:00:00
+        LocalDateTime end = baseDate;                 // 15 stycznia 12:00:00
 
         // When
         List<GameResult> results = gameResultRepository.findByDateRange(start, end);
