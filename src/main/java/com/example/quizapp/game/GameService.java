@@ -36,9 +36,7 @@ public class GameService {
     private final QuestionMapper questionMapper;
     private final ObjectMapper objectMapper;
 
-    /**
-     * Start a new game session
-     */
+//    Start a new game session
     @Transactional
     public StartGameResponse startGame(StartGameRequest request) {
         log.info("Starting game for quiz {} with player {}", request.getQuizId(), request.getPlayerNickname());

@@ -1,8 +1,6 @@
 package com.example.quizapp.quiz;
 
-import com.example.quizapp.common.exception.QuestionNotFoundException;
-import com.example.quizapp.common.exception.ResourceNotFoundException;
-import com.example.quizapp.question.Question;
+import com.example.quizapp.common.exception.QuizNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -12,9 +10,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
-/**
- * Service for Quiz business logic
- */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -24,9 +19,7 @@ public class QuizService {
     private final QuizRepository quizRepository;
     private final QuizMapper quizMapper;
 
-    /**
-     * Get all active quizzes
-     */
+//    Get all active quizzes
     public List<QuizDto> getAllActiveQuizzes() {
         log.info("Fetching all active quizzes");
         List<Quiz> quizzes = quizRepository.findByActiveTrue();
@@ -36,9 +29,7 @@ public class QuizService {
                 .toList();
     }
 
-    /**
-     * Get all active quizzes with pagination
-     */
+//    Get all active quizzes with pagination
     public Page<QuizDto> getAllActiveQuizzes(Pageable pageable) {
         log.info("Fetching active quizzes with pagination: {}", pageable);
         Page<Quiz> quizzes = quizRepository.findByActiveTrue(pageable);
@@ -46,9 +37,7 @@ public class QuizService {
         return quizzes.map(quizMapper::toDto);
     }
 
-    /**
-     * Get quiz by ID
-     */
+//    Get quiz by ID
     public QuizDto getQuizById(Long id) {
         log.info("Fetching quiz with id: {}", id);
         Quiz quiz = quizExists(id);
@@ -56,9 +45,7 @@ public class QuizService {
         return quizMapper.toDto(quiz);
     }
 
-    /**
-     * Get quiz by ID with questions eagerly loaded
-     */
+//    Get quiz by ID with questions eagerly loaded
     public QuizDto getQuizByIdWithQuestions(Long id) {
         log.info("Fetching quiz with questions, id: {}", id);
         Quiz quiz = quizExists(id);
@@ -66,9 +53,7 @@ public class QuizService {
         return quizMapper.toDto(quiz);
     }
 
-    /**
-     * Create new quiz
-     */
+//    Create new quiz
     @Transactional
     public QuizDto createQuiz(QuizDto quizDto) {
         log.info("Creating new quiz: {}", quizDto.getTitle());
@@ -88,9 +73,7 @@ public class QuizService {
         return quizMapper.toDto(savedQuiz);
     }
 
-    /**
-     * Update existing quiz
-     */
+//    Update existing quiz
     @Transactional
     public QuizDto updateQuiz(Long id, QuizDto quizDto) {
         log.info("Updating quiz with id: {}", id);
@@ -120,9 +103,7 @@ public class QuizService {
         return quizMapper.toDto(updatedQuiz);
     }
 
-    /**
-     * Delete quiz (soft delete - set active to false)
-     */
+//    Delete quiz (soft delete - set active to false)
     @Transactional
     public void deleteQuiz(Long id) {
         log.info("Deleting quiz with id: {}", id);
@@ -134,9 +115,7 @@ public class QuizService {
         log.info("Quiz soft-deleted successfully: {}", quiz.getTitle());
     }
 
-    /**
-     * Permanently delete quiz
-     */
+//    Permanently delete quiz
     @Transactional
     public void permanentlyDeleteQuiz(Long id) {
         log.info("Permanently deleting quiz with id: {}", id);
@@ -147,9 +126,7 @@ public class QuizService {
         log.info("Quiz permanently deleted with id: {}", id);
     }
 
-    /**
-     * Search quizzes by title
-     */
+//    Search quizzes by title
     public List<QuizDto> searchQuizzes(String keyword) {
         log.info("Searching quizzes with keyword: {}", keyword);
         List<Quiz> quizzes = quizRepository.searchByTitle(keyword);
@@ -159,9 +136,7 @@ public class QuizService {
                 .toList();
     }
 
-    /**
-     * Search quizzes by title with pagination
-     */
+//    Search quizzes by title with pagination
     public Page<QuizDto> searchQuizzes(String keyword, Pageable pageable) {
         log.info("Searching quizzes with keyword: {} and pagination", keyword);
         Page<Quiz> quizzes = quizRepository.searchByTitle(keyword, pageable);
@@ -169,9 +144,7 @@ public class QuizService {
         return quizzes.map(quizMapper::toDto);
     }
 
-    /**
-     * Get quizzes by creator
-     */
+//    Get quizzes by creator
     public List<QuizDto> getQuizzesByCreator(String createdBy) {
         log.info("Fetching quizzes created by: {}", createdBy);
         List<Quiz> quizzes = quizRepository.findByCreatedBy(createdBy);
@@ -181,9 +154,7 @@ public class QuizService {
                 .toList();
     }
 
-    /**
-     * Count active quizzes
-     */
+//    Count active quizzes
     public long countActiveQuizzes() {
         long count = quizRepository.countByActiveTrue();
         log.debug("Total active quizzes: {}", count);
@@ -193,8 +164,8 @@ public class QuizService {
     private Quiz quizExists(Long quizId) {
         return quizRepository.findById(quizId)
                 .orElseThrow(() -> {
-                    log.error("Question not found with id: {}", quizId);
-                    return new QuestionNotFoundException(quizId);
+                    log.error("Quiz not found with id: {}", quizId);
+                    return new QuizNotFoundException(quizId);
                 });
     }
 }

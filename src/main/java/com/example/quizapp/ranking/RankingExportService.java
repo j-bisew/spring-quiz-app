@@ -21,6 +21,8 @@ import org.springframework.stereotype.Service;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.StringWriter;
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
@@ -75,7 +77,7 @@ public class RankingExportService {
             }
 
             csvWriter.flush();
-            byte[] csvBytes = stringWriter.toString().getBytes();
+            byte[] csvBytes = stringWriter.toString().getBytes(StandardCharsets.UTF_8);
 
             log.info("CSV export completed for quiz {}. Size: {} bytes", quizId, csvBytes.length);
 
@@ -106,7 +108,6 @@ public class RankingExportService {
             // Title
             Paragraph title = new Paragraph("Quiz Rankings: " + quiz.getTitle())
                     .setFontSize(18)
-                    .setBold()
                     .setTextAlignment(TextAlignment.CENTER);
             document.add(title);
 
@@ -132,7 +133,7 @@ public class RankingExportService {
                     "Correct", "Wrong", "Total", "Time", "Grade"
             };
             for (String header : headers) {
-                table.addHeaderCell(new Cell().add(new Paragraph(header).setBold()));
+                table.addHeaderCell(new Cell().add(new Paragraph(header)));
             }
 
             // Data rows
@@ -156,7 +157,7 @@ public class RankingExportService {
 
             // Footer
             Paragraph footer = new Paragraph("Generated on: " +
-                    java.time.LocalDateTime.now().format(DATE_FORMATTER))
+                    LocalDateTime.now().format(DATE_FORMATTER))
                     .setFontSize(10)
                     .setTextAlignment(TextAlignment.CENTER)
                     .setMarginTop(20);

@@ -7,16 +7,15 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.test.context.ActiveProfiles;
 
 import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/**
- * Repository tests for QuestionRepository
- */
 @DataJpaTest
+@ActiveProfiles("test")
 @DisplayName("QuestionRepository Tests")
 class QuestionRepositoryTest {
 
@@ -300,21 +299,6 @@ class QuestionRepositoryTest {
 
         // Then
         assertThat(count).isEqualTo(2); // Only active questions
-    }
-
-    @Test
-    @DisplayName("Should count active questions by quiz ID")
-    void shouldCountActiveQuestionsByQuizId() {
-        // Given
-        questionRepository.save(question1);
-        questionRepository.save(question2);
-        questionRepository.save(inactiveQuestion);
-
-        // When
-        long count = questionRepository.countByQuizIdAndActiveTrue(testQuiz.getId());
-
-        // Then
-        assertThat(count).isEqualTo(2);
     }
 
     @Test
