@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      xml:lang="en"
+      layout:decorate="~{layout}">
+<head>
+    <title th:text="${title}">Global Rankings</title>
+</head>
+<body>
+<div layout:fragment="content">
+    <div class="row">
+        <!-- Main Content -->
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="bi bi-trophy-fill"></i> Global Rankings
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted">Top players across all quizzes</p>
+
+                    <!-- Empty state -->
+                    <div th:if="${rankings == null or rankings.isEmpty()}" class="text-center py-5">
+                        <i class="bi bi-trophy display-1 text-muted"></i>
+                        <h4 class="mt-3">No rankings yet</h4>
+                        <p class="text-muted">Be the first to complete a quiz and appear on the leaderboard!</p>
+                        <a th:href="@{/quizzes}" class="btn btn-primary">
+                            <i class="bi bi-play-circle"></i> Play a Quiz
+                        </a>
+                    </div>
+
+                    <!-- Rankings Table -->
+                    <div th:unless="${rankings == null or rankings.isEmpty()}" class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead class="table-light">
+                            <tr>
+                                <th style="width: 60px;" class="text-center">#</th>
+                                <th>Player</th>
+                                <th class="text-center">Games Played</th>
+                                <th>Last Quiz</th>
+                                <th class="text-center">Last Score</th>
+                                <th>Last Played</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr th:each="ranking, stat : ${rankings}">
+                                <td class="text-center">
+                                        <span th:if="${stat.index == 0}" class="badge bg-warning text-dark fs-5">
+                                            <i class="bi bi-trophy-fill"></i> 1
+                                        </span>
+                                    <span th:if="${stat.index == 1}" class="badge bg-secondary fs-6">
+                                            <i class="bi bi-trophy"></i> 2
+                                        </span>
+                                    <span th:if="${stat.index == 2}" class="badge bg-danger fs-6">
+                                            <i class="bi bi-trophy"></i> 3
+                                        </span>
+                                    <span th:if="${stat.index > 2}" class="text-muted" th:text="${stat.count}">4</span>
+                                </td>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="avatar bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2"
+                                             style="width: 40px; height: 40px;">
+                                            <span th:text="${ranking.playerNickname.substring(0, 1).toUpperCase()}">A</span>
+                                        </div>
+                                        <strong th:text="${ranking.playerNickname}">Player</strong>
+                                    </div>
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge bg-info" th:text="${ranking.totalGamesPlayed}">5</span>
+                                </td>
+                                <td>
+                                    <span class="text-muted" th:text="${ranking.lastQuizTitle}">Quiz Title</span>
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge bg-success" th:text="${ranking.lastScore}">85</span>
+                                </td>
+                                <td>
+                                    <small class="text-muted"
+                                           th:text="${#temporals.format(ranking.lastPlayedAt, 'MMM dd, HH:mm')}">Jan 01, 12:00</small>
+                                </td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar - Quiz List -->
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0"><i class="bi bi-list-ul"></i> Quiz Leaderboards</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div th:if="${quizzes == null or quizzes.isEmpty()}" class="p-3 text-center text-muted">
+                        No quizzes available
+                    </div>
+                    <div class="list-group list-group-flush" th:unless="${quizzes == null or quizzes.isEmpty()}">
+                        <a th:each="quiz : ${quizzes}"
+                           th:href="@{/rankings/quiz/{id}(id=${quiz.id})}"
+                           class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong th:text="${quiz.title}">Quiz Title</strong>
+                                <br>
+                                <small class="text-muted" th:text="${quiz.questionCount} + ' questions'">10 questions</small>
+                            </div>
+                            <i class="bi bi-chevron-right text-muted"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stats Card -->
+            <div class="card mt-4">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0"><i class="bi bi-graph-up"></i> Quick Stats</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-6 mb-3">
+                            <h3 class="text-primary mb-0" th:text="${rankings != null ? rankings.size() : 0}">0</h3>
+                            <small class="text-muted">Active Players</small>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <h3 class="text-success mb-0" th:text="${quizzes != null ? quizzes.size() : 0}">0</h3>
+                            <small class="text-muted">Active Quizzes</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>
