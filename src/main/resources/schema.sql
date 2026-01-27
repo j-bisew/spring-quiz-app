@@ -17,6 +17,7 @@ CREATE TABLE users (
                        full_name VARCHAR(100),
                        role VARCHAR(20) NOT NULL DEFAULT 'USER',
                        is_enabled BOOLEAN DEFAULT TRUE,
+                       is_locked BOOLEAN DEFAULT FALSE,
                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
