@@ -4,72 +4,551 @@
       layout:decorate="~{layout}">
 <head>
     <title>Playing Quiz</title>
+    <style>
+        .question-card {
+            transition: all 0.3s ease;
+        }
+        .question-card.answered {
+            border-left: 4px solid #198754;
+        }
+        .sortable-item {
+            cursor: move;
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 12px 15px;
+            margin-bottom: 8px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            transition: background 0.2s;
+        }
+        .sortable-item:hover {
+            background: #e9ecef;
+        }
+        .sortable-item.dragging {
+            opacity: 0.5;
+            background: #cfe2ff;
+        }
+        .sortable-handle {
+            cursor: grab;
+            margin-right: 10px;
+            color: #6c757d;
+        }
+        .matching-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        .matching-left {
+            flex: 1;
+            font-weight: 500;
+        }
+        .matching-select {
+            flex: 1;
+        }
+        .blank-input {
+            display: inline-block;
+            min-width: 120px;
+            border-bottom: 2px solid #0d6efd;
+            background: transparent;
+            border-top: none;
+            border-left: none;
+            border-right: none;
+            padding: 2px 5px;
+            margin: 0 5px;
+        }
+        .timer-warning {
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .progress-questions {
+            height: 8px;
+        }
+    </style>
 </head>
 <body>
 <div layout:fragment="content">
-    <div class="container mt-4">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h2 th:text="${quizTitle}">Quiz Title</h2>
-            <div id="timer" class="h4 text-danger" th:if="${timeLimit != null}">
-                <i class="bi bi-clock"></i> <span id="timeRemaining">--:--</span>
+    <!-- Quiz Header -->
+    <div class="card mb-4 sticky-top bg-white" style="top: 0; z-index: 100;">
+        <div class="card-body py-3">
+            <div class="row align-items-center">
+                <div class="col-md-4">
+                    <h4 class="mb-0" th:text="${quizTitle}">Quiz Title</h4>
+                    <small class="text-muted">Answer all questions below</small>
+                </div>
+                <div class="col-md-4 text-center">
+                    <!-- Progress -->
+                    <div class="mb-1">
+                        <span class="text-muted">Progress: </span>
+                        <strong><span id="answeredCount">0</span> / <span th:text="${questions.size()}">0</span></strong>
+                    </div>
+                    <div class="progress progress-questions">
+                        <div class="progress-bar bg-success" id="progressBar" role="progressbar" style="width: 0%"></div>
+                    </div>
+                </div>
+                <div class="col-md-4 text-end">
+                    <!-- Timer -->
+                    <div th:if="${timeLimit != null}" id="timerContainer">
+                        <span class="badge bg-danger fs-5 p-2" id="timer">
+                            <i class="bi bi-clock"></i> <span id="timeRemaining">--:--</span>
+                        </span>
+                    </div>
+                    <div th:unless="${timeLimit != null}">
+                        <span class="badge bg-secondary">No time limit</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Form -->
+    <form th:action="@{/game/submit}" th:object="${gameForm}" method="post" id="quizForm">
+        <input type="hidden" th:field="*{sessionId}"/>
+        <input type="hidden" th:field="*{quizId}"/>
+        <input type="hidden" th:field="*{playerId}"/>
+
+        <!-- Questions -->
+        <div th:each="question, stat : ${questions}" class="card mb-4 question-card" th:id="'question-' + ${stat.index}">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <div>
+                    <span class="badge bg-primary me-2" th:text="'Question ' + ${stat.count}">1</span>
+                    <span class="badge"
+                          th:classappend="${question.questionType.name() == 'SINGLE_CHOICE' ? 'bg-info' :
+                                           question.questionType.name() == 'MULTIPLE_CHOICE' ? 'bg-success' :
+                                           question.questionType.name() == 'TRUE_FALSE' ? 'bg-warning text-dark' :
+                                           question.questionType.name() == 'SHORT_ANSWER' ? 'bg-secondary' :
+                                           question.questionType.name() == 'DROPDOWN' ? 'bg-dark' :
+                                           question.questionType.name() == 'FILL_BLANKS' ? 'bg-danger' :
+                                           question.questionType.name() == 'SORTING' ? 'bg-purple' : 'bg-info'}"
+                          th:text="${question.questionType.displayName}">Type</span>
+                </div>
+                <span class="badge bg-light text-dark" th:text="${question.points} + ' points'">10 points</span>
+            </div>
+            <div class="card-body">
+                <!-- Hidden fields -->
+                <input type="hidden" th:field="*{answers[__${stat.index}__].questionId}" th:value="${question.id}"/>
+
+                <!-- Question Text -->
+                <h5 class="card-title mb-4" th:text="${question.questionText}">Question text</h5>
+
+                <!-- Question Image -->
+                <div th:if="${question.imageUrl}" class="mb-3 text-center">
+                    <img th:src="${question.imageUrl}" alt="Question image" class="img-fluid rounded" style="max-height: 250px;">
+                </div>
+
+                <!-- ========== SINGLE CHOICE ========== -->
+                <div th:if="${question.questionType.name() == 'SINGLE_CHOICE'}" class="question-options">
+                    <div th:each="option, optStat : ${question.parsedOptions}"
+                         class="form-check mb-2 p-3 border rounded">
+                        <input class="form-check-input" type="radio"
+                               th:name="'answer_' + ${stat.index}"
+                               th:id="'q' + ${stat.index} + '_opt' + ${optStat.index}"
+                               th:value="${optStat.index}"
+                               th:data-question="${stat.index}"
+                               onchange="updateAnswer(this)">
+                        <label class="form-check-label w-100"
+                               th:for="'q' + ${stat.index} + '_opt' + ${optStat.index}"
+                               th:text="${option}">Option</label>
+                    </div>
+                    <input type="hidden" th:id="'hidden_' + ${stat.index}" th:field="*{answers[__${stat.index}__].userAnswer}">
+                </div>
+
+                <!-- ========== MULTIPLE CHOICE ========== -->
+                <div th:if="${question.questionType.name() == 'MULTIPLE_CHOICE'}" class="question-options">
+                    <p class="text-muted small mb-3"><i class="bi bi-info-circle"></i> Select all correct answers</p>
+                    <div th:each="option, optStat : ${question.parsedOptions}"
+                         class="form-check mb-2 p-3 border rounded">
+                        <input class="form-check-input" type="checkbox"
+                               th:name="'answer_multi_' + ${stat.index}"
+                               th:id="'q' + ${stat.index} + '_multi' + ${optStat.index}"
+                               th:value="${optStat.index}"
+                               th:data-question="${stat.index}"
+                               onchange="updateMultiAnswer(this)">
+                        <label class="form-check-label w-100"
+                               th:for="'q' + ${stat.index} + '_multi' + ${optStat.index}"
+                               th:text="${option}">Option</label>
+                    </div>
+                    <input type="hidden" th:id="'hidden_' + ${stat.index}" th:field="*{answers[__${stat.index}__].userAnswer}">
+                </div>
+
+                <!-- ========== TRUE/FALSE ========== -->
+                <div th:if="${question.questionType.name() == 'TRUE_FALSE'}" class="question-options">
+                    <div class="row g-3">
+                        <div class="col-6">
+                            <div class="form-check p-4 border rounded text-center">
+                                <input class="form-check-input" type="radio"
+                                       th:name="'answer_tf_' + ${stat.index}"
+                                       th:id="'q' + ${stat.index} + '_true'"
+                                       value="0"
+                                       th:data-question="${stat.index}"
+                                       onchange="updateAnswer(this)">
+                                <label class="form-check-label w-100 fs-5" th:for="'q' + ${stat.index} + '_true'">
+                                    <i class="bi bi-check-circle text-success"></i> True
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="form-check p-4 border rounded text-center">
+                                <input class="form-check-input" type="radio"
+                                       th:name="'answer_tf_' + ${stat.index}"
+                                       th:id="'q' + ${stat.index} + '_false'"
+                                       value="1"
+                                       th:data-question="${stat.index}"
+                                       onchange="updateAnswer(this)">
+                                <label class="form-check-label w-100 fs-5" th:for="'q' + ${stat.index} + '_false'">
+                                    <i class="bi bi-x-circle text-danger"></i> False
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <input type="hidden" th:id="'hidden_' + ${stat.index}" th:field="*{answers[__${stat.index}__].userAnswer}">
+                </div>
+
+                <!-- ========== SHORT ANSWER ========== -->
+                <div th:if="${question.questionType.name() == 'SHORT_ANSWER'}" class="question-options">
+                    <input type="text" class="form-control form-control-lg"
+                           th:id="'short_' + ${stat.index}"
+                           th:data-question="${stat.index}"
+                           placeholder="Type your answer here..."
+                           onchange="updateShortAnswer(this)"
+                           oninput="updateShortAnswer(this)">
+                    <input type="hidden" th:id="'hidden_' + ${stat.index}" th:field="*{answers[__${stat.index}__].userAnswer}">
+                </div>
+
+                <!-- ========== DROPDOWN ========== -->
+                <div th:if="${question.questionType.name() == 'DROPDOWN'}" class="question-options">
+                    <select class="form-select form-select-lg"
+                            th:id="'dropdown_' + ${stat.index}"
+                            th:data-question="${stat.index}"
+                            onchange="updateDropdown(this)">
+                        <option value="">-- Select an answer --</option>
+                        <option th:each="option, optStat : ${question.parsedOptions}"
+                                th:value="${optStat.index}"
+                                th:text="${option}">Option</option>
+                    </select>
+                    <input type="hidden" th:id="'hidden_' + ${stat.index}" th:field="*{answers[__${stat.index}__].userAnswer}">
+                </div>
+
+                <!-- ========== FILL IN THE BLANKS ========== -->
+                <div th:if="${question.questionType.name() == 'FILL_BLANKS'}" class="question-options">
+                    <p class="text-muted small mb-3"><i class="bi bi-info-circle"></i> Fill in each blank below</p>
+                    <div class="row g-3">
+                        <div th:each="blank, blankStat : ${question.parsedOptions}"
+                             class="col-md-6">
+                            <label class="form-label" th:text="${blank}">Blank label</label>
+                            <input type="text" class="form-control"
+                                   th:id="'blank_' + ${stat.index} + '_' + ${blankStat.index}"
+                                   th:data-question="${stat.index}"
+                                   th:data-blank="${blankStat.index}"
+                                   placeholder="Your answer..."
+                                   onchange="updateBlanks(this)"
+                                   oninput="updateBlanks(this)">
+                        </div>
+                    </div>
+                    <input type="hidden" th:id="'hidden_' + ${stat.index}" th:field="*{answers[__${stat.index}__].userAnswer}"
+                           th:data-blanks="${#lists.size(question.parsedOptions)}">
+                </div>
+
+                <!-- ========== SORTING ========== -->
+                <div th:if="${question.questionType.name() == 'SORTING'}" class="question-options">
+                    <p class="text-muted small mb-3"><i class="bi bi-info-circle"></i> Drag items to arrange in correct order</p>
+                    <div th:id="'sortable_' + ${stat.index}" class="sortable-container" th:data-question="${stat.index}">
+                        <div th:each="item, itemStat : ${question.parsedOptions}"
+                             class="sortable-item" th:data-index="${itemStat.index}" draggable="true">
+                            <span class="sortable-handle"><i class="bi bi-grip-vertical"></i></span>
+                            <span class="sortable-number badge bg-secondary me-2" th:text="${itemStat.count}">1</span>
+                            <span th:text="${item}">Item</span>
+                        </div>
+                    </div>
+                    <input type="hidden" th:id="'hidden_' + ${stat.index}" th:field="*{answers[__${stat.index}__].userAnswer}"
+                           th:data-count="${#lists.size(question.parsedOptions)}">
+                </div>
+
+                <!-- ========== MATCHING ========== -->
+                <div th:if="${question.questionType.name() == 'MATCHING'}" class="question-options">
+                    <p class="text-muted small mb-3"><i class="bi bi-info-circle"></i> Match each item on the left with the correct item on the right</p>
+                    <div th:with="pairs=${question.parsedOptions}">
+                        <div th:each="pair, pairStat : ${question.matchingPairs}" class="matching-row">
+                            <div class="matching-left">
+                                <span class="badge bg-primary me-2" th:text="${pairStat.count}">1</span>
+                                <span th:text="${pair.left}">Left item</span>
+                            </div>
+                            <i class="bi bi-arrow-right mx-3"></i>
+                            <div class="matching-select">
+                                <select class="form-select"
+                                        th:id="'match_' + ${stat.index} + '_' + ${pairStat.index}"
+                                        th:data-question="${stat.index}"
+                                        th:data-pair="${pairStat.index}"
+                                        onchange="updateMatching(this)">
+                                    <option value="">-- Select --</option>
+                                    <option th:each="p, pStat : ${question.matchingPairs}"
+                                            th:value="${pStat.index}"
+                                            th:text="${p.right}">Right item</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <input type="hidden" th:id="'hidden_' + ${stat.index}" th:field="*{answers[__${stat.index}__].userAnswer}"
+                           th:data-pairs="${#lists.size(question.parsedOptions)}">
+                </div>
+
             </div>
         </div>
 
-        <form th:action="@{/game/submit}" th:object="${gameForm}" method="post" id="quizForm">
-            <input type="hidden" th:field="*{sessionId}"/>
-            <input type="hidden" th:field="*{quizId}"/>
-            <input type="hidden" th:field="*{playerId}"/>
-
-            <div class="card mb-4" th:each="question, stat : ${questions}">
-                <div class="card-header bg-light">
-                    <h5 class="mb-0">
-                        <span class="badge bg-primary me-2" th:text="${stat.count}">1</span>
-                        <span th:text="${question.questionText}">Treść pytania</span>
-                    </h5>
-                    <small class="text-muted" th:text="${question.points} + ' pkt'">10 pkt</small>
-                </div>
-                <div class="card-body">
-                    <input type="hidden" th:field="*{answers[__${stat.index}__].questionId}" th:value="${question.id}"/>
-
-                    <div th:if="${question.questionType.name() == 'SINGLE_CHOICE' or question.questionType.name() == 'TRUE_FALSE'}">
-                        <p class="text-muted small">Wpisz odpowiedź (lub wybierz opcję jeśli zaimplementowano parsowanie JSON):</p>
-                        <input type="text" class="form-control" th:field="*{answers[__${stat.index}__].userAnswer}" required>
-                    </div>
-
-                    <div th:if="${question.questionType.name() == 'SHORT_ANSWER'}">
-                        <input type="text" class="form-control" th:field="*{answers[__${stat.index}__].userAnswer}" placeholder="Twoja odpowiedź..." required>
-                    </div>
-
-                    <div th:unless="${question.questionType.name() == 'SHORT_ANSWER' or question.questionType.name() == 'SINGLE_CHOICE' or question.questionType.name() == 'TRUE_FALSE'}">
-                        <p class="text-muted">Wpisz odpowiedź w formacie JSON (np. ["odp1", "odp2"])</p>
-                        <textarea class="form-control" th:field="*{answers[__${stat.index}__].userAnswer}" rows="2"></textarea>
-                    </div>
+        <!-- Submit Section -->
+        <div class="card bg-light mb-5">
+            <div class="card-body text-center py-4">
+                <h5>Ready to submit?</h5>
+                <p class="text-muted">Make sure you've answered all questions before submitting.</p>
+                <div class="d-flex gap-3 justify-content-center">
+                    <button type="button" class="btn btn-outline-secondary" onclick="scrollToUnanswered()">
+                        <i class="bi bi-search"></i> Find Unanswered
+                    </button>
+                    <button type="submit" class="btn btn-success btn-lg" id="submitBtn">
+                        <i class="bi bi-check-circle"></i> Submit Quiz
+                    </button>
                 </div>
             </div>
+        </div>
+    </form>
 
-            <div class="d-grid gap-2 mb-5">
-                <button type="submit" class="btn btn-success btn-lg">Zakończ i sprawdź</button>
+    <!-- Confirmation Modal -->
+    <div class="modal fade" id="confirmModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Submit Quiz?</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>You have answered <strong id="modalAnswered">0</strong> out of <strong th:text="${questions.size()}">0</strong> questions.</p>
+                    <p id="unansweredWarning" class="text-danger" style="display: none;">
+                        <i class="bi bi-exclamation-triangle"></i> You have unanswered questions!
+                    </p>
+                    <p>Are you sure you want to submit?</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Review Answers</button>
+                    <button type="button" class="btn btn-success" onclick="document.getElementById('quizForm').submit()">
+                        <i class="bi bi-check-circle"></i> Submit
+                    </button>
+                </div>
             </div>
-        </form>
+        </div>
     </div>
 
-    <script th:if="${timeLimit != null}" th:inline="javascript">
-        let minutes = [[${timeLimit}]];
-        let seconds = minutes * 60;
-        const timerDisplay = document.getElementById('timeRemaining');
+    <script th:inline="javascript">
+        const totalQuestions = /*[[${questions.size()}]]*/ 0;
+        const timeLimit = /*[[${timeLimit}]]*/ null;
+        let answeredQuestions = new Set();
 
-        const interval = setInterval(() => {
-            seconds--;
-            const m = Math.floor(seconds / 60);
-            const s = seconds % 60;
-            timerDisplay.textContent = `${m}:${s < 10 ? '0' : ''}${s}`;
+        // Timer functionality
+        if (timeLimit) {
+            let seconds = timeLimit * 60;
+            const timerDisplay = document.getElementById('timeRemaining');
+            const timerBadge = document.getElementById('timer');
 
-            if (seconds <= 0) {
-                clearInterval(interval);
-                alert("Czas minął!");
-                document.getElementById('quizForm').submit();
+            const interval = setInterval(() => {
+                seconds--;
+                const m = Math.floor(seconds / 60);
+                const s = seconds % 60;
+                timerDisplay.textContent = `${m}:${s < 10 ? '0' : ''}${s}`;
+
+                // Warning when 1 minute left
+                if (seconds <= 60) {
+                    timerBadge.classList.add('timer-warning');
+                }
+
+                if (seconds <= 0) {
+                    clearInterval(interval);
+                    alert("Time's up! Your quiz will be submitted now.");
+                    document.getElementById('quizForm').submit();
+                }
+            }, 1000);
+        }
+
+        // Update progress
+        function updateProgress() {
+            const count = answeredQuestions.size;
+            document.getElementById('answeredCount').textContent = count;
+            const percent = (count / totalQuestions) * 100;
+            document.getElementById('progressBar').style.width = percent + '%';
+        }
+
+        // Mark question as answered
+        function markAnswered(questionIndex) {
+            answeredQuestions.add(questionIndex);
+            document.getElementById('question-' + questionIndex).classList.add('answered');
+            updateProgress();
+        }
+
+        // Single choice / True-False answer
+        function updateAnswer(element) {
+            const qIndex = element.dataset.question;
+            const value = element.value;
+            document.getElementById('hidden_' + qIndex).value = value;
+            markAnswered(parseInt(qIndex));
+        }
+
+        // Multiple choice answer
+        function updateMultiAnswer(element) {
+            const qIndex = element.dataset.question;
+            const checkboxes = document.querySelectorAll(`input[name="answer_multi_${qIndex}"]:checked`);
+            const values = Array.from(checkboxes).map(cb => parseInt(cb.value));
+            document.getElementById('hidden_' + qIndex).value = JSON.stringify(values);
+            if (values.length > 0) {
+                markAnswered(parseInt(qIndex));
             }
-        }, 1000);
+        }
+
+        // Short answer
+        function updateShortAnswer(element) {
+            const qIndex = element.dataset.question;
+            const value = element.value.trim();
+            document.getElementById('hidden_' + qIndex).value = value;
+            if (value) {
+                markAnswered(parseInt(qIndex));
+            }
+        }
+
+        // Dropdown answer
+        function updateDropdown(element) {
+            const qIndex = element.dataset.question;
+            const value = element.value;
+            document.getElementById('hidden_' + qIndex).value = value;
+            if (value) {
+                markAnswered(parseInt(qIndex));
+            }
+        }
+
+        // Fill blanks answer
+        function updateBlanks(element) {
+            const qIndex = element.dataset.question;
+            const hidden = document.getElementById('hidden_' + qIndex);
+            const blanksCount = parseInt(hidden.dataset.blanks);
+            const answers = [];
+
+            for (let i = 0; i < blanksCount; i++) {
+                const input = document.getElementById(`blank_${qIndex}_${i}`);
+                answers.push(input ? input.value.trim() : '');
+            }
+
+            hidden.value = JSON.stringify(answers);
+
+            if (answers.some(a => a !== '')) {
+                markAnswered(parseInt(qIndex));
+            }
+        }
+
+        // Sorting - drag and drop
+        document.querySelectorAll('.sortable-container').forEach(container => {
+            const items = container.querySelectorAll('.sortable-item');
+
+            items.forEach(item => {
+                item.addEventListener('dragstart', function(e) {
+                    this.classList.add('dragging');
+                    e.dataTransfer.effectAllowed = 'move';
+                });
+
+                item.addEventListener('dragend', function() {
+                    this.classList.remove('dragging');
+                    updateSortingAnswer(container);
+                });
+
+                item.addEventListener('dragover', function(e) {
+                    e.preventDefault();
+                    const dragging = container.querySelector('.dragging');
+                    if (dragging && dragging !== this) {
+                        const rect = this.getBoundingClientRect();
+                        const midY = rect.top + rect.height / 2;
+                        if (e.clientY < midY) {
+                            container.insertBefore(dragging, this);
+                        } else {
+                            container.insertBefore(dragging, this.nextSibling);
+                        }
+                    }
+                });
+            });
+        });
+
+        function updateSortingAnswer(container) {
+            const qIndex = container.dataset.question;
+            const items = container.querySelectorAll('.sortable-item');
+            const order = Array.from(items).map(item => parseInt(item.dataset.index));
+            document.getElementById('hidden_' + qIndex).value = JSON.stringify(order);
+
+            // Update visual numbers
+            items.forEach((item, idx) => {
+                item.querySelector('.sortable-number').textContent = idx + 1;
+            });
+
+            markAnswered(parseInt(qIndex));
+        }
+
+        // Matching answer
+        function updateMatching(element) {
+            const qIndex = element.dataset.question;
+            const hidden = document.getElementById('hidden_' + qIndex);
+            const pairsCount = parseInt(hidden.dataset.pairs);
+            const matches = [];
+
+            for (let i = 0; i < pairsCount; i++) {
+                const select = document.getElementById(`match_${qIndex}_${i}`);
+                if (select && select.value) {
+                    matches.push({left: String(i), right: select.value});
+                }
+            }
+
+            hidden.value = JSON.stringify(matches);
+
+            if (matches.length > 0) {
+                markAnswered(parseInt(qIndex));
+            }
+        }
+
+        // Find unanswered questions
+        function scrollToUnanswered() {
+            for (let i = 0; i < totalQuestions; i++) {
+                if (!answeredQuestions.has(i)) {
+                    document.getElementById('question-' + i).scrollIntoView({behavior: 'smooth', block: 'center'});
+                    document.getElementById('question-' + i).classList.add('border-warning');
+                    setTimeout(() => {
+                        document.getElementById('question-' + i).classList.remove('border-warning');
+                    }, 2000);
+                    return;
+                }
+            }
+            alert('All questions answered!');
+        }
+
+        // Submit confirmation
+        document.getElementById('submitBtn').addEventListener('click', function(e) {
+            e.preventDefault();
+            document.getElementById('modalAnswered').textContent = answeredQuestions.size;
+            if (answeredQuestions.size < totalQuestions) {
+                document.getElementById('unansweredWarning').style.display = 'block';
+            } else {
+                document.getElementById('unansweredWarning').style.display = 'none';
+            }
+            new bootstrap.Modal(document.getElementById('confirmModal')).show();
+        });
+
+        // Back button blocking (if enabled)
+        /*<![CDATA[*/
+        const backBlocked = /*[[${backButtonBlocked}]]*/ false;
+        if (backBlocked) {
+            history.pushState(null, null, location.href);
+            window.onpopstate = function() {
+                history.go(1);
+            };
+        }
+        /*]]>*/
     </script>
 </div>
 </body>

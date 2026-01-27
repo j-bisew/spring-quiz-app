@@ -1,65 +1,235 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org"
       xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
-      layout:decorate="~{layout}" lang="en">
+      xml:lang="en"
+      layout:decorate="~{layout}">
 <head>
-    <title>Wyniki</title>
+    <title th:text="${title}">Quiz Result</title>
+    <style>
+        .result-hero {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 3rem;
+            border-radius: 15px;
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        .result-hero.passed {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        }
+        .result-hero.failed {
+            background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+        }
+        .score-circle {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.2);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1rem;
+            border: 5px solid rgba(255,255,255,0.5);
+        }
+        .answer-card {
+            transition: all 0.3s ease;
+            border-left: 4px solid transparent;
+        }
+        .answer-card.correct {
+            border-left-color: #198754;
+            background: #d1e7dd;
+        }
+        .answer-card.wrong {
+            border-left-color: #dc3545;
+            background: #f8d7da;
+        }
+    </style>
 </head>
 <body>
 <div layout:fragment="content">
-    <div class="container text-center mt-5">
-        <div class="card shadow-lg">
-            <div class="card-body p-5">
-                <h1 class="display-4 mb-4">Twój Wynik</h1>
+    <!-- Result Hero Section -->
+    <div class="result-hero" th:classappend="${result.passed ? 'passed' : 'failed'}">
+        <div class="score-circle">
+            <span class="display-4 fw-bold" th:text="${result.score}">85</span>
+            <small th:text="'/ ' + ${result.maxScore}">/ 100</small>
+        </div>
 
-                <div class="row justify-content-center mb-4">
-                    <div class="col-md-4">
-                        <div class="p-3 border rounded bg-light">
-                            <h3><span th:text="${result.score}">0</span> / <span th:text="${result.maxScore}">100</span></h3>
-                            <p class="text-muted mb-0">Punkty</p>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="p-3 border rounded" th:classappend="${result.passed ? 'bg-success text-white' : 'bg-danger text-white'}">
-                            <h3 th:text="${result.passed ? 'ZALICZONY' : 'NIEZALICZONY'}">STATUS</h3>
-                            <p class="mb-0 opacity-75">Status</p>
-                        </div>
-                    </div>
+        <h1 class="display-5 mb-3">
+            <span th:if="${result.passed}">Congratulations!</span>
+            <span th:unless="${result.passed}">Try Again!</span>
+        </h1>
+
+        <div class="row justify-content-center g-4 mt-3">
+            <div class="col-auto">
+                <div class="bg-white bg-opacity-25 rounded p-3">
+                    <h3 class="mb-0" th:text="${#numbers.formatDecimal(result.percentageScore, 1, 1)} + '%'">85%</h3>
+                    <small>Percentage</small>
                 </div>
-
-                <div class="progress mb-4" style="height: 30px;">
-                    <div class="progress-bar" role="progressbar"
-                         th:style="'width: ' + ${result.percentageScore} + '%'"
-                         th:text="${#numbers.formatDecimal(result.percentageScore, 1, 1)} + '%'">
-                    </div>
+            </div>
+            <div class="col-auto">
+                <div class="bg-white bg-opacity-25 rounded p-3">
+                    <h3 class="mb-0" th:text="${result.grade}">A</h3>
+                    <small>Grade</small>
                 </div>
-
-                <div class="d-flex gap-3 justify-content-center">
-                    <a th:href="@{/quizzes}" class="btn btn-primary">Wróć do listy quizów</a>
-                    <a th:href="@{/rankings/quiz/{id}(id=${result.quizId})}" class="btn btn-outline-secondary">Zobacz ranking</a>
-                    <a th:href="@{/api/v1/rankings/quiz/{id}/export/pdf(id=${result.quizId})}" class="btn btn-outline-danger">
-                        <i class="bi bi-file-pdf"></i> PDF
-                    </a>
+            </div>
+            <div class="col-auto">
+                <div class="bg-white bg-opacity-25 rounded p-3">
+                    <h3 class="mb-0" th:text="${result.correctAnswers} + '/' + ${result.totalQuestions}">8/10</h3>
+                    <small>Correct</small>
+                </div>
+            </div>
+            <div class="col-auto" th:if="${result.timeTakenSeconds != null}">
+                <div class="bg-white bg-opacity-25 rounded p-3">
+                    <h3 class="mb-0">
+                        <span th:text="${result.timeTakenSeconds / 60}">5</span>:<span th:text="${result.timeTakenSeconds % 60 < 10 ? '0' + (result.timeTakenSeconds % 60) : result.timeTakenSeconds % 60}">30</span>
+                    </h3>
+                    <small>Time</small>
                 </div>
             </div>
         </div>
+    </div>
 
-        <div class="mt-5 text-start">
-            <h3>Szczegółowe wyniki</h3>
-            <div class="list-group">
-                <div th:each="detail : ${result.detailedAnswers}" class="list-group-item">
-                    <div class="d-flex w-100 justify-content-between">
-                        <h5 class="mb-1" th:text="${detail.questionText}">Pytanie</h5>
-                        <small th:class="${detail.correct ? 'text-success' : 'text-danger'}">
-                            <i th:class="${detail.correct ? 'bi bi-check-circle' : 'bi bi-x-circle'}"></i>
-                            <span th:text="${detail.pointsEarned} + ' pkt'"></span>
-                        </small>
+    <!-- Quiz Info -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h4 class="mb-1" th:text="${result.quizTitle}">Quiz Title</h4>
+                    <p class="text-muted mb-0">
+                        Played by <strong th:text="${result.playerNickname}">Player</strong>
+                    </p>
+                </div>
+                <div class="col-md-4 text-end">
+                    <div class="btn-group">
+                        <a th:href="@{/game/start/{id}(id=${result.quizId})}" class="btn btn-primary">
+                            <i class="bi bi-arrow-repeat"></i> Play Again
+                        </a>
+                        <a th:href="@{/rankings/quiz/{id}(id=${result.quizId})}" class="btn btn-outline-warning">
+                            <i class="bi bi-trophy"></i> Leaderboard
+                        </a>
                     </div>
-                    <p class="mb-1">Twoja odp: <strong th:text="${detail.userAnswer}"></strong></p>
-                    <p class="mb-1 text-success" th:unless="${detail.correct}">Prawidłowa: <strong th:text="${detail.correctAnswer}"></strong></p>
                 </div>
             </div>
         </div>
+    </div>
+
+    <!-- Summary Stats -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-3">
+            <div class="card text-center h-100">
+                <div class="card-body">
+                    <i class="bi bi-check-circle text-success fs-1"></i>
+                    <h3 class="mt-2 mb-0 text-success" th:text="${result.correctAnswers}">8</h3>
+                    <small class="text-muted">Correct</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center h-100">
+                <div class="card-body">
+                    <i class="bi bi-x-circle text-danger fs-1"></i>
+                    <h3 class="mt-2 mb-0 text-danger" th:text="${result.wrongAnswers}">2</h3>
+                    <small class="text-muted">Wrong</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center h-100">
+                <div class="card-body">
+                    <i class="bi bi-star text-warning fs-1"></i>
+                    <h3 class="mt-2 mb-0" th:text="${result.score}">85</h3>
+                    <small class="text-muted">Points</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center h-100" th:classappend="${result.passed ? 'border-success' : 'border-danger'}">
+                <div class="card-body">
+                    <i th:if="${result.passed}" class="bi bi-emoji-smile text-success fs-1"></i>
+                    <i th:unless="${result.passed}" class="bi bi-emoji-frown text-danger fs-1"></i>
+                    <h3 class="mt-2 mb-0" th:classappend="${result.passed ? 'text-success' : 'text-danger'}">
+                        <span th:if="${result.passed}">PASSED</span>
+                        <span th:unless="${result.passed}">FAILED</span>
+                    </h3>
+                    <small class="text-muted">Result</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detailed Answers -->
+    <div class="card" th:if="${result.detailedAnswers != null and !result.detailedAnswers.isEmpty()}">
+        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="bi bi-list-check"></i> Detailed Answers</h5>
+            <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#answersCollapse">
+                <i class="bi bi-chevron-down"></i> Toggle
+            </button>
+        </div>
+        <div class="collapse show" id="answersCollapse">
+            <div class="card-body p-0">
+                <div class="list-group list-group-flush">
+                    <div th:each="answer, stat : ${result.detailedAnswers}"
+                         class="list-group-item answer-card"
+                         th:classappend="${answer.correct ? 'correct' : 'wrong'}">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <div class="d-flex align-items-center mb-2">
+                                    <span class="badge bg-secondary me-2" th:text="'Q' + ${stat.count}">Q1</span>
+                                    <span th:if="${answer.correct}" class="badge bg-success">
+                                        <i class="bi bi-check"></i> Correct
+                                    </span>
+                                    <span th:unless="${answer.correct}" class="badge bg-danger">
+                                        <i class="bi bi-x"></i> Wrong
+                                    </span>
+                                </div>
+                                <h6 class="mb-2" th:text="${answer.questionText}">Question text</h6>
+
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <small class="text-muted">Your answer:</small>
+                                        <p class="mb-1" th:classappend="${answer.correct ? 'text-success' : 'text-danger'}">
+                                            <strong th:if="${answer.userAnswer != null and answer.userAnswer != ''}" th:text="${answer.userAnswer}">Answer</strong>
+                                            <strong th:unless="${answer.userAnswer != null and answer.userAnswer != ''}">(No answer)</strong>
+                                        </p>
+                                    </div>
+                                    <div class="col-md-6" th:unless="${answer.correct}">
+                                        <small class="text-muted">Correct answer:</small>
+                                        <p class="mb-1 text-success">
+                                            <strong th:text="${answer.correctAnswer}">Correct</strong>
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div th:if="${answer.explanation != null and answer.explanation != ''}" class="mt-2 p-2 bg-light rounded">
+                                    <small class="text-muted"><i class="bi bi-lightbulb"></i> Explanation:</small>
+                                    <p class="mb-0 small" th:text="${answer.explanation}">Explanation</p>
+                                </div>
+                            </div>
+                            <div class="text-end ms-3">
+                                <span class="badge fs-6" th:classappend="${answer.pointsEarned >= 0 ? 'bg-success' : 'bg-danger'}">
+                                    <span th:if="${answer.pointsEarned >= 0}">+</span>
+                                    <span th:text="${answer.pointsEarned}">10</span> pts
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="d-flex flex-wrap gap-3 justify-content-center mt-4 mb-5">
+        <a th:href="@{/game/start/{id}(id=${result.quizId})}" class="btn btn-primary btn-lg">
+            <i class="bi bi-arrow-repeat"></i> Play Again
+        </a>
+        <a th:href="@{/rankings/quiz/{id}(id=${result.quizId})}" class="btn btn-outline-warning btn-lg">
+            <i class="bi bi-trophy"></i> Leaderboard
+        </a>
+        <a th:href="@{/quizzes}" class="btn btn-outline-secondary btn-lg">
+            <i class="bi bi-list-ul"></i> More Quizzes
+        </a>
     </div>
 </div>
 </body>
