@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout}">
+<head>
+    <title th:text="${title}">Quiz Preview</title>
+</head>
+<body>
+<div layout:fragment="content">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a th:href="@{/creator}">Creator</a></li>
+            <li class="breadcrumb-item"><a th:href="@{/creator/quiz/{id}/questions(id=${quiz.id})}" th:text="${quiz.title}">Quiz</a></li>
+            <li class="breadcrumb-item active">Preview</li>
+        </ol>
+    </nav>
+
+    <!-- Preview Banner -->
+    <div class="alert alert-info d-flex align-items-center mb-4">
+        <i class="bi bi-info-circle fs-4 me-3"></i>
+        <div>
+            <strong>Preview Mode</strong> - This is how players will see your quiz. Answers are shown for reference.
+        </div>
+    </div>
+
+    <!-- Quiz Header -->
+    <div class="card mb-4">
+        <div class="card-body text-center py-4">
+            <h1 class="display-5" th:text="${quiz.title}">Quiz Title</h1>
+            <p class="lead text-muted" th:text="${quiz.description}">Description</p>
+            
+            <div class="d-flex flex-wrap justify-content-center gap-3 mt-4">
+                <span class="badge bg-primary fs-6 p-2">
+                    <i class="bi bi-question-circle"></i> 
+                    <span th:text="${questions.size()}">0</span> Questions
+                </span>
+                <span class="badge bg-success fs-6 p-2">
+                    <i class="bi bi-trophy"></i> 
+                    <span th:text="${quiz.totalPoints}">0</span> Points
+                </span>
+                <span th:if="${quiz.timeLimitMinutes}" class="badge bg-warning text-dark fs-6 p-2">
+                    <i class="bi bi-clock"></i> 
+                    <span th:text="${quiz.timeLimitMinutes}">30</span> Minutes
+                </span>
+            </div>
+
+            <!-- Settings Info -->
+            <div class="mt-4">
+                <span th:if="${quiz.randomQuestionOrder}" class="badge bg-info me-2">
+                    <i class="bi bi-shuffle"></i> Random Question Order
+                </span>
+                <span th:if="${quiz.randomAnswerOrder}" class="badge bg-info me-2">
+                    <i class="bi bi-arrow-down-up"></i> Random Answer Order
+                </span>
+                <span th:if="${quiz.negativePointsEnabled}" class="badge bg-danger me-2">
+                    <i class="bi bi-dash-circle"></i> Negative Points Enabled
+                </span>
+                <span th:if="${quiz.backButtonBlocked}" class="badge bg-dark">
+                    <i class="bi bi-lock"></i> Back Button Blocked
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Questions Preview -->
+    <div th:if="${questions.isEmpty()}" class="alert alert-warning text-center">
+        <i class="bi bi-exclamation-triangle fs-1"></i>
+        <h4 class="mt-2">No Questions</h4>
+        <p>This quiz has no questions yet. Add some questions to preview.</p>
+        <a th:href="@{/creator/quiz/{id}/questions(id=${quiz.id})}" class="btn btn-primary">
+            <i class="bi bi-plus-circle"></i> Add Questions
+        </a>
+    </div>
+
+    <div th:unless="${questions.isEmpty()}">
+        <div th:each="question, stat : ${questions}" class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <div>
+                    <span class="badge bg-primary me-2" th:text="'#' + ${stat.count}">1</span>
+                    <span class="badge" 
+                          th:classappend="${question.questionType.name() == 'SINGLE_CHOICE' ? 'bg-primary' :
+                                           question.questionType.name() == 'MULTIPLE_CHOICE' ? 'bg-success' :
+                                           question.questionType.name() == 'TRUE_FALSE' ? 'bg-info' :
+                                           question.questionType.name() == 'SHORT_ANSWER' ? 'bg-warning text-dark' :
+                                           question.questionType.name() == 'DROPDOWN' ? 'bg-secondary' :
+                                           question.questionType.name() == 'FILL_BLANKS' ? 'bg-danger' :
+                                           question.questionType.name() == 'SORTING' ? 'bg-dark' : 'bg-purple'}"
+                          th:text="${question.questionType.displayName}">Type</span>
+                </div>
+                <div>
+                    <span class="text-success fw-bold" th:text="'+' + ${question.points} + ' pts'">+10 pts</span>
+                    <span th:if="${question.negativePoints != null and question.negativePoints > 0}" 
+                          class="text-danger ms-2" th:text="'(-' + ${question.negativePoints} + ')'">(-2)</span>
+                </div>
+            </div>
+            <div class="card-body">
+                <!-- Question Text -->
+                <h5 class="card-title mb-4" th:text="${question.questionText}">Question text</h5>
+
+                <!-- Question Image -->
+                <div th:if="${question.imageUrl}" class="mb-3 text-center">
+                    <img th:src="${question.imageUrl}" alt="Question image" class="img-fluid rounded" style="max-height: 300px;">
+                </div>
+
+                <!-- Answer Options by Type -->
+                <div class="question-preview">
+                    
+                    <!-- SINGLE_CHOICE -->
+                    <div th:if="${question.questionType.name() == 'SINGLE_CHOICE'}" class="options-preview">
+                        <div th:each="option, optStat : ${#strings.arraySplit(question.answerOptions.replace('[', '').replace(']', '').replace('&quot;', ''), ',')}" 
+                             class="form-check mb-2">
+                            <input class="form-check-input" type="radio" disabled
+                                   th:checked="${question.correctAnswer == '' + optStat.index}">
+                            <label class="form-check-label" 
+                                   th:classappend="${question.correctAnswer == '' + optStat.index ? 'text-success fw-bold' : ''}"
+                                   th:text="${option}">Option</label>
+                            <i th:if="${question.correctAnswer == '' + optStat.index}" 
+                               class="bi bi-check-circle-fill text-success ms-2"></i>
+                        </div>
+                    </div>
+
+                    <!-- MULTIPLE_CHOICE -->
+                    <div th:if="${question.questionType.name() == 'MULTIPLE_CHOICE'}" class="options-preview">
+                        <p class="text-muted small"><i class="bi bi-info-circle"></i> Select all that apply</p>
+                        <div th:each="option, optStat : ${#strings.arraySplit(question.answerOptions.replace('[', '').replace(']', '').replace('&quot;', ''), ',')}" 
+                             class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" disabled
+                                   th:checked="${question.correctAnswer.contains('' + optStat.index)}">
+                            <label class="form-check-label"
+                                   th:classappend="${question.correctAnswer.contains('' + optStat.index) ? 'text-success fw-bold' : ''}"
+                                   th:text="${option}">Option</label>
+                            <i th:if="${question.correctAnswer.contains('' + optStat.index)}" 
+                               class="bi bi-check-circle-fill text-success ms-2"></i>
+                        </div>
+                    </div>
+
+                    <!-- TRUE_FALSE -->
+                    <div th:if="${question.questionType.name() == 'TRUE_FALSE'}" class="options-preview">
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="radio" disabled th:checked="${question.correctAnswer == '0'}">
+                            <label class="form-check-label" th:classappend="${question.correctAnswer == '0' ? 'text-success fw-bold' : ''}">
+                                True
+                            </label>
+                            <i th:if="${question.correctAnswer == '0'}" class="bi bi-check-circle-fill text-success ms-2"></i>
+                        </div>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="radio" disabled th:checked="${question.correctAnswer == '1'}">
+                            <label class="form-check-label" th:classappend="${question.correctAnswer == '1' ? 'text-success fw-bold' : ''}">
+                                False
+                            </label>
+                            <i th:if="${question.correctAnswer == '1'}" class="bi bi-check-circle-fill text-success ms-2"></i>
+                        </div>
+                    </div>
+
+                    <!-- SHORT_ANSWER -->
+                    <div th:if="${question.questionType.name() == 'SHORT_ANSWER'}" class="options-preview">
+                        <input type="text" class="form-control mb-2" disabled placeholder="Type your answer here...">
+                        <div class="alert alert-success py-2">
+                            <i class="bi bi-check-circle"></i> <strong>Correct answer:</strong> 
+                            <span th:text="${question.correctAnswer}">Answer</span>
+                        </div>
+                    </div>
+
+                    <!-- DROPDOWN -->
+                    <div th:if="${question.questionType.name() == 'DROPDOWN'}" class="options-preview">
+                        <select class="form-select mb-2" disabled>
+                            <option>-- Select an option --</option>
+                            <option th:each="option, optStat : ${#strings.arraySplit(question.answerOptions.replace('[', '').replace(']', '').replace('&quot;', ''), ',')}"
+                                    th:text="${option}"
+                                    th:selected="${question.correctAnswer == '' + optStat.index}">Option</option>
+                        </select>
+                        <div class="alert alert-success py-2">
+                            <i class="bi bi-check-circle"></i> <strong>Correct option marked as selected</strong>
+                        </div>
+                    </div>
+
+                    <!-- FILL_BLANKS -->
+                    <div th:if="${question.questionType.name() == 'FILL_BLANKS'}" class="options-preview">
+                        <p class="text-muted small"><i class="bi bi-info-circle"></i> Fill in each blank</p>
+                        <div class="row g-2 mb-2">
+                            <div th:each="blank, blankStat : ${#strings.arraySplit(question.answerOptions.replace('[', '').replace(']', '').replace('&quot;', ''), ',')}" 
+                                 class="col-md-6">
+                                <label class="form-label small" th:text="${blank}">Blank</label>
+                                <input type="text" class="form-control form-control-sm" disabled placeholder="Answer...">
+                            </div>
+                        </div>
+                        <div class="alert alert-success py-2">
+                            <i class="bi bi-check-circle"></i> <strong>Correct answers:</strong> 
+                            <span th:text="${question.correctAnswer}">Answers</span>
+                        </div>
+                    </div>
+
+                    <!-- SORTING -->
+                    <div th:if="${question.questionType.name() == 'SORTING'}" class="options-preview">
+                        <p class="text-muted small"><i class="bi bi-info-circle"></i> Drag items to arrange in correct order</p>
+                        <div th:each="item, itemStat : ${#strings.arraySplit(question.answerOptions.replace('[', '').replace(']', '').replace('&quot;', ''), ',')}" 
+                             class="alert alert-secondary py-2 mb-1 d-flex align-items-center">
+                            <i class="bi bi-grip-vertical me-2"></i>
+                            <span th:text="${item}">Item</span>
+                        </div>
+                        <div class="alert alert-success py-2 mt-2">
+                            <i class="bi bi-check-circle"></i> <strong>Correct order (indexes):</strong> 
+                            <span th:text="${question.correctAnswer}">Order</span>
+                        </div>
+                    </div>
+
+                    <!-- MATCHING -->
+                    <div th:if="${question.questionType.name() == 'MATCHING'}" class="options-preview">
+                        <p class="text-muted small"><i class="bi bi-info-circle"></i> Match items from left to right</p>
+                        <div class="alert alert-info py-2">
+                            <strong>Pairs:</strong> <span th:text="${question.answerOptions}">Pairs</span>
+                        </div>
+                        <div class="alert alert-success py-2">
+                            <i class="bi bi-check-circle"></i> <strong>Correct matching:</strong> 
+                            <span th:text="${question.correctAnswer}">Matching</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Explanation -->
+                <div th:if="${question.explanation}" class="mt-3 p-3 bg-light rounded">
+                    <i class="bi bi-lightbulb text-warning"></i>
+                    <strong>Explanation:</strong>
+                    <span th:text="${question.explanation}">Explanation text</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="d-flex gap-2 justify-content-between mt-4 mb-5">
+        <a th:href="@{/creator/quiz/{id}/questions(id=${quiz.id})}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Back to Questions
+        </a>
+        <div class="d-flex gap-2">
+            <a th:href="@{/creator/quiz/{id}/edit(id=${quiz.id})}" class="btn btn-outline-primary">
+                <i class="bi bi-pencil"></i> Edit Quiz Settings
+            </a>
+            <a th:href="@{/game/start/{id}(id=${quiz.id})}" class="btn btn-success">
+                <i class="bi bi-play-fill"></i> Play Quiz
+            </a>
+        </div>
+    </div>
+</div>
+</body>
+</html>

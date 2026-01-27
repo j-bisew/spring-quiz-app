@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout}">
+<head>
+    <title th:text="${title}">Quiz Form</title>
+</head>
+<body>
+<div layout:fragment="content">
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a th:href="@{/creator}">Creator</a></li>
+            <li class="breadcrumb-item active" th:text="${isEdit ? 'Edit Quiz' : 'New Quiz'}">Form</li>
+        </ol>
+    </nav>
+
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i th:class="${isEdit ? 'bi bi-pencil' : 'bi bi-plus-circle'}"></i>
+                        <span th:text="${isEdit ? 'Edit Quiz' : 'Create New Quiz'}">Quiz Form</span>
+                    </h4>
+                </div>
+                <div class="card-body p-4">
+                    <div th:if="${error}" class="alert alert-danger alert-dismissible fade show">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        <span th:text="${error}">Error message</span>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+
+                    <form th:action="${isEdit ? '/creator/quiz/' + quizDto.id + '/edit' : '/creator/quiz/new'}"
+                          th:object="${quizDto}" method="post">
+
+                        <fieldset class="mb-4">
+                            <legend class="h5 border-bottom pb-2 mb-3">
+                                <i class="bi bi-info-circle text-primary"></i> Basic Information
+                            </legend>
+
+                            <div class="mb-3">
+                                <label for="title" class="form-label">Quiz Title <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="title" th:field="*{title}"
+                                       th:classappend="${#fields.hasErrors('title') ? 'is-invalid' : ''}"
+                                       placeholder="Enter quiz title" required />
+                                <div class="invalid-feedback" th:if="${#fields.hasErrors('title')}" th:errors="*{title}">
+                                    Title error
+                                </div>
+                                <div class="form-text">Title must be between 3 and 200 characters.</div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="description" class="form-label">Description</label>
+                                <textarea class="form-control" id="description" th:field="*{description}"
+                                          rows="3" placeholder="Describe your quiz..."
+                                          th:classappend="${#fields.hasErrors('description') ? 'is-invalid' : ''}"></textarea>
+                                <div class="invalid-feedback" th:if="${#fields.hasErrors('description')}" th:errors="*{description}">
+                                    Description error
+                                </div>
+                                <div class="form-text">Maximum 1000 characters.</div>
+                            </div>
+                        </fieldset>
+
+                        <fieldset class="mb-4">
+                            <legend class="h5 border-bottom pb-2 mb-3">
+                                <i class="bi bi-gear text-primary"></i> Quiz Settings
+                            </legend>
+
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="timeLimitMinutes" class="form-label">
+                                        <i class="bi bi-clock"></i> Time Limit (minutes)
+                                    </label>
+                                    <input type="number" class="form-control" id="timeLimitMinutes"
+                                           th:field="*{timeLimitMinutes}" min="1" max="300"
+                                           placeholder="Leave empty for no limit"
+                                           th:classappend="${#fields.hasErrors('timeLimitMinutes') ? 'is-invalid' : ''}" />
+                                    <div class="invalid-feedback" th:if="${#fields.hasErrors('timeLimitMinutes')}"
+                                         th:errors="*{timeLimitMinutes}">
+                                        Time limit error
+                                    </div>
+                                    <div class="form-text">Optional. Set between 1-300 minutes.</div>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="randomQuestionOrder"
+                                               th:field="*{randomQuestionOrder}" />
+                                        <label class="form-check-label" for="randomQuestionOrder">
+                                            <i class="bi bi-shuffle"></i> Random Question Order
+                                        </label>
+                                    </div>
+                                    <div class="form-text">Questions will be displayed in random order for each player.</div>
+                                </div>
+
+                                <div class="col-md-6 mb-3">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="randomAnswerOrder"
+                                               th:field="*{randomAnswerOrder}" />
+                                        <label class="form-check-label" for="randomAnswerOrder">
+                                            <i class="bi bi-arrow-down-up"></i> Random Answer Order
+                                        </label>
+                                    </div>
+                                    <div class="form-text">Answer options will be shuffled for each player.</div>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="negativePointsEnabled"
+                                               th:field="*{negativePointsEnabled}" />
+                                        <label class="form-check-label" for="negativePointsEnabled">
+                                            <i class="bi bi-dash-circle text-danger"></i> Enable Negative Points
+                                        </label>
+                                    </div>
+                                    <div class="form-text">Wrong answers will deduct points (set per question).</div>
+                                </div>
+
+                                <div class="col-md-6 mb-3">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="backButtonBlocked"
+                                               th:field="*{backButtonBlocked}" />
+                                        <label class="form-check-label" for="backButtonBlocked">
+                                            <i class="bi bi-lock"></i> Block Back Button
+                                        </label>
+                                    </div>
+                                    <div class="form-text">Prevent players from going back to previous questions.</div>
+                                </div>
+                            </div>
+
+                            <div th:if="${isEdit}" class="mb-3">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="active" th:field="*{active}" />
+                                    <label class="form-check-label" for="active">
+                                        <i class="bi bi-toggle-on text-success"></i> Quiz is Active
+                                    </label>
+                                </div>
+                                <div class="form-text">Inactive quizzes won't appear in the public quiz list.</div>
+                            </div>
+                        </fieldset>
+
+                        <div class="d-flex gap-2 justify-content-end pt-3 border-top">
+                            <a th:href="@{/creator}" class="btn btn-outline-secondary">
+                                <i class="bi bi-x-circle"></i> Cancel
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i th:class="${isEdit ? 'bi bi-check-circle' : 'bi bi-plus-circle'}"></i>
+                                <span th:text="${isEdit ? 'Save Changes' : 'Create Quiz'}">Submit</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card mt-4">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0"><i class="bi bi-question-circle"></i> Settings Explained</h5>
+                </div>
+                <div class="card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-4"><i class="bi bi-clock text-primary"></i> Time Limit</dt>
+                        <dd class="col-sm-8">Set a maximum time for completing the quiz. When time runs out, the quiz auto-submits.</dd>
+
+                        <dt class="col-sm-4"><i class="bi bi-shuffle text-primary"></i> Random Questions</dt>
+                        <dd class="col-sm-8">Each player sees questions in a different order, preventing cheating.</dd>
+
+                        <dt class="col-sm-4"><i class="bi bi-arrow-down-up text-primary"></i> Random Answers</dt>
+                        <dd class="col-sm-8">Answer options are shuffled, so "option A" isn't always first.</dd>
+
+                        <dt class="col-sm-4"><i class="bi bi-dash-circle text-danger"></i> Negative Points</dt>
+                        <dd class="col-sm-8">Wrong answers deduct points. Configure the penalty per question.</dd>
+
+                        <dt class="col-sm-4"><i class="bi bi-lock text-dark"></i> Block Back</dt>
+                        <dd class="col-sm-8 mb-0">Players cannot return to previous questions once they move forward.</dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>

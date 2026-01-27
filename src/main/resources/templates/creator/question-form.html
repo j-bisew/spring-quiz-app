@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout}">
+<head>
+    <title th:text="${title}">Question Form</title>
+    <style>
+        .option-row {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+        }
+        .option-row.correct {
+            background: #d1e7dd;
+            border: 1px solid #0f5132;
+        }
+        .pair-row {
+            background: #e7f1ff;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+        }
+        .type-help {
+            font-size: 0.875rem;
+            padding: 15px;
+            background: #fff3cd;
+            border-radius: 8px;
+            border-left: 4px solid #ffc107;
+        }
+    </style>
+</head>
+<body>
+<div layout:fragment="content">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a th:href="@{/templates/creator}">Creator</a></li>
+            <li class="breadcrumb-item"><a th:href="@{/creator/quiz/{id}/questions(id=${quiz.id})}" th:text="${quiz.title}">Quiz</a></li>
+            <li class="breadcrumb-item active" th:text="${isEdit ? 'Edit Question' : 'Add Question'}">Question</li>
+        </ol>
+    </nav>
+
+    <div class="row">
+        <!-- Main Form Column -->
+        <div class="col-lg-8">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i th:class="${isEdit ? 'bi bi-pencil' : 'bi bi-plus-circle'}"></i>
+                        <span th:text="${isEdit ? 'Edit Question' : 'Add New Question'}">Question Form</span>
+                    </h4>
+                </div>
+                <div class="card-body p-4">
+                    <!-- Error Alert -->
+                    <div th:if="${error}" class="alert alert-danger alert-dismissible fade show">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        <span th:text="${error}">Error message</span>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+
+                    <form th:action="${isEdit ? '/creator/quiz/' + quiz.id + '/question/' + questionDto.id + '/edit' : '/creator/quiz/' + quiz.id + '/question/new'}"
+                          th:object="${questionDto}" method="post" id="questionForm" novalidate>
+
+                        <!-- Question Type -->
+                        <div class="mb-4">
+                            <label for="questionType" class="form-label">
+                                <i class="bi bi-tag"></i> Question Type <span class="text-danger">*</span>
+                            </label>
+                            <select class="form-select form-select-lg" id="questionType" th:field="*{questionType}"
+                                    th:classappend="${#fields.hasErrors('questionType') ? 'is-invalid' : ''}"
+                                    onchange="updateFormForType()" required>
+                                <option value="">-- Select Type --</option>
+                                <option th:each="type : ${questionTypes}" th:value="${type.name()}" th:text="${type.displayName}">Type</option>
+                            </select>
+                            <div class="invalid-feedback" th:if="${#fields.hasErrors('questionType')}" th:errors="*{questionType}">Error</div>
+                        </div>
+
+                        <!-- Dynamic Help Box -->
+                        <div id="typeHelp" class="type-help mb-4" style="display: none;">
+                            <strong><i class="bi bi-lightbulb"></i> <span id="typeHelpTitle">Tip</span></strong>
+                            <p class="mb-0 mt-2" id="typeHelpText">Help text</p>
+                        </div>
+
+                        <!-- Question Text -->
+                        <div class="mb-4">
+                            <label for="questionText" class="form-label">
+                                <i class="bi bi-chat-left-text"></i> Question Text <span class="text-danger">*</span>
+                            </label>
+                            <textarea class="form-control" id="questionText" th:field="*{questionText}" rows="3"
+                                      placeholder="Enter your question here..."
+                                      th:classappend="${#fields.hasErrors('questionText') ? 'is-invalid' : ''}" required></textarea>
+                            <div class="invalid-feedback" th:if="${#fields.hasErrors('questionText')}" th:errors="*{questionText}">Error</div>
+                            <div class="form-text">For Fill Blanks, use ___ (three underscores) to mark blanks.</div>
+                        </div>
+
+                        <!-- Points Section -->
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <label for="points" class="form-label">
+                                    <i class="bi bi-star text-warning"></i> Points <span class="text-danger">*</span>
+                                </label>
+                                <input type="number" class="form-control" id="points" th:field="*{points}"
+                                       min="1" max="100" placeholder="10"
+                                       th:classappend="${#fields.hasErrors('points') ? 'is-invalid' : ''}" required>
+                                <div class="invalid-feedback" th:if="${#fields.hasErrors('points')}" th:errors="*{points}">Error</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="negativePoints" class="form-label">
+                                    <i class="bi bi-dash-circle text-danger"></i> Negative Points
+                                </label>
+                                <input type="number" class="form-control" id="negativePoints" th:field="*{negativePoints}"
+                                       min="0" max="50" placeholder="0 (optional)">
+                                <div class="form-text">Points deducted for wrong answer (if enabled in quiz)</div>
+                            </div>
+                        </div>
+
+                        <!-- Answer Options Builder -->
+                        <div id="optionsSection" class="mb-4" style="display: none;">
+                            <label class="form-label">
+                                <i class="bi bi-list-ul"></i> Answer Options <span class="text-danger">*</span>
+                            </label>
+                            <div id="optionsContainer">
+                                <!-- Options will be dynamically added -->
+                            </div>
+                            <button type="button" class="btn btn-outline-primary btn-sm mt-2" onclick="addOption()">
+                                <i class="bi bi-plus"></i> Add Option
+                            </button>
+                            <input type="hidden" id="answerOptions" th:field="*{answerOptions}">
+                            <div class="invalid-feedback d-block" th:if="${#fields.hasErrors('answerOptions')}" th:errors="*{answerOptions}">Error</div>
+                        </div>
+
+                        <!-- Matching Pairs Builder -->
+                        <div id="matchingSection" class="mb-4" style="display: none;">
+                            <label class="form-label">
+                                <i class="bi bi-link-45deg"></i> Matching Pairs <span class="text-danger">*</span>
+                            </label>
+                            <div id="pairsContainer">
+                                <!-- Pairs will be dynamically added -->
+                            </div>
+                            <button type="button" class="btn btn-outline-primary btn-sm mt-2" onclick="addPair()">
+                                <i class="bi bi-plus"></i> Add Pair
+                            </button>
+                        </div>
+
+                        <!-- Correct Answer -->
+                        <div id="correctAnswerSection" class="mb-4">
+                            <label for="correctAnswer" class="form-label">
+                                <i class="bi bi-check-circle text-success"></i> Correct Answer <span class="text-danger">*</span>
+                            </label>
+                            <div id="correctAnswerContainer">
+                                <!-- Will be populated based on question type -->
+                                <input type="text" class="form-control" id="correctAnswerInput"
+                                       placeholder="Enter correct answer">
+                            </div>
+                            <input type="hidden" id="correctAnswer" th:field="*{correctAnswer}">
+                            <div class="invalid-feedback d-block" th:if="${#fields.hasErrors('correctAnswer')}" th:errors="*{correctAnswer}">Error</div>
+                        </div>
+
+                        <!-- Explanation -->
+                        <div class="mb-4">
+                            <label for="explanation" class="form-label">
+                                <i class="bi bi-info-circle"></i> Explanation (optional)
+                            </label>
+                            <textarea class="form-control" id="explanation" th:field="*{explanation}" rows="2"
+                                      placeholder="Explain why this is the correct answer..."></textarea>
+                            <div class="form-text">Shown to player after answering.</div>
+                        </div>
+
+                        <!-- Order & Time -->
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <label for="questionOrder" class="form-label">
+                                    <i class="bi bi-sort-numeric-down"></i> Question Order
+                                </label>
+                                <input type="number" class="form-control" id="questionOrder" th:field="*{questionOrder}"
+                                       min="1" placeholder="Auto-assigned">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="timeLimitSeconds" class="form-label">
+                                    <i class="bi bi-stopwatch"></i> Time Limit (seconds)
+                                </label>
+                                <input type="number" class="form-control" id="timeLimitSeconds" th:field="*{timeLimitSeconds}"
+                                       min="5" max="600" placeholder="Optional">
+                            </div>
+                        </div>
+
+                        <!-- Image URL -->
+                        <div class="mb-4">
+                            <label for="imageUrl" class="form-label">
+                                <i class="bi bi-image"></i> Image URL (optional)
+                            </label>
+                            <input type="url" class="form-control" id="imageUrl" th:field="*{imageUrl}"
+                                   placeholder="https://example.com/image.jpg">
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="d-flex gap-2 justify-content-end pt-3 border-top">
+                            <a th:href="@{/creator/quiz/{id}/questions(id=${quiz.id})}" class="btn btn-outline-secondary">
+                                <i class="bi bi-x-circle"></i> Cancel
+                            </a>
+                            <button type="button" class="btn btn-info" onclick="previewQuestion()">
+                                <i class="bi bi-eye"></i> Preview
+                            </button>
+                            <button type="submit" class="btn btn-primary" onclick="prepareSubmit()">
+                                <i th:class="${isEdit ? 'bi bi-check-circle' : 'bi bi-plus-circle'}"></i>
+                                <span th:text="${isEdit ? 'Save Changes' : 'Add Question'}">Submit</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Help Sidebar -->
+        <div class="col-lg-4">
+            <div class="card sticky-top" style="top: 20px;">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0"><i class="bi bi-book"></i> Format Guide</h5>
+                </div>
+                <div class="card-body" id="formatGuide">
+                    <p class="text-muted">Select a question type to see the format guide.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Preview Modal -->
+    <div class="modal fade" id="previewModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-eye"></i> Question Preview</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="previewContent">
+                    <!-- Preview content -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script th:inline="javascript">
+        // Initialize with existing data if editing
+        const existingOptions = /*[[${questionDto.answerOptions}]]*/ null;
+        const existingCorrect = /*[[${questionDto.correctAnswer}]]*/ null;
+        const existingType = /*[[${questionDto.questionType?.name()}]]*/ null;
+
+        let options = [];
+        let pairs = [];
+        let correctIndexes = [];
+
+        document.addEventListener('DOMContentLoaded', function() {
+            if (existingType) {
+                updateFormForType();
+                // Parse existing data
+                if (existingOptions) {
+                    try {
+                        const parsed = JSON.parse(existingOptions);
+                        if (existingType === 'MATCHING') {
+                            pairs = parsed;
+                            renderPairs();
+                        } else {
+                            options = parsed;
+                            renderOptions();
+                        }
+                    } catch(e) { console.log('Parse error:', e); }
+                }
+                if (existingCorrect) {
+                    try {
+                        if (existingType === 'MULTIPLE_CHOICE' || existingType === 'SORTING' || existingType === 'FILL_BLANKS') {
+                            correctIndexes = JSON.parse(existingCorrect);
+                        } else if (existingType === 'SHORT_ANSWER') {
+                            document.getElementById('correctAnswerInput').value = existingCorrect.replace(/^"|"$/g, '');
+                        } else if (existingType === 'SINGLE_CHOICE' || existingType === 'TRUE_FALSE' || existingType === 'DROPDOWN') {
+                            correctIndexes = [parseInt(existingCorrect)];
+                        }
+                        updateCorrectDisplay();
+                    } catch(e) { console.log('Parse error:', e); }
+                }
+            }
+        });
+
+        const typeHelps = {
+            'SINGLE_CHOICE': {
+                title: 'Single Choice Question',
+                text: 'Player selects ONE correct answer from multiple options. Click the radio button to mark the correct option.',
+                guide: '<p><strong>Options:</strong> Add at least 2 options</p><p><strong>Correct:</strong> Select one option as correct (radio button)</p><p><em>Example: What is 2+2? Options: 3, 4, 5, 6 → Correct: 4</em></p>'
+            },
+            'MULTIPLE_CHOICE': {
+                title: 'Multiple Choice Question',
+                text: 'Player can select MULTIPLE correct answers. Check all options that are correct.',
+                guide: '<p><strong>Options:</strong> Add at least 2 options</p><p><strong>Correct:</strong> Check all correct options (checkboxes)</p><p><em>Example: Select prime numbers: 2, 4, 7, 9 → Correct: 2, 7</em></p>'
+            },
+            'TRUE_FALSE': {
+                title: 'True/False Question',
+                text: 'Simple binary choice between True and False.',
+                guide: '<p><strong>Options:</strong> Automatically set to True/False</p><p><strong>Correct:</strong> Select True or False</p><p><em>Example: The sky is blue → Correct: True</em></p>'
+            },
+            'SHORT_ANSWER': {
+                title: 'Short Answer Question',
+                text: 'Player types a text answer. Comparison is case-insensitive.',
+                guide: '<p><strong>Options:</strong> Not needed</p><p><strong>Correct:</strong> Type the expected answer</p><p><em>Example: Capital of France? → Correct: Paris</em></p>'
+            },
+            'DROPDOWN': {
+                title: 'Dropdown Selection',
+                text: 'Player selects from a dropdown list. Similar to single choice but different UI.',
+                guide: '<p><strong>Options:</strong> Add options for dropdown</p><p><strong>Correct:</strong> Select one correct option</p>'
+            },
+            'FILL_BLANKS': {
+                title: 'Fill in the Blanks',
+                text: 'Use ___ in question text to mark blanks. Player fills each blank.',
+                guide: '<p><strong>Question:</strong> Use ___ for blanks</p><p><strong>Blanks:</strong> Add labels for each blank</p><p><strong>Correct:</strong> Enter correct answer for each blank</p><p><em>Example: Java was created by ___ in ___ → James Gosling, 1995</em></p>'
+            },
+            'SORTING': {
+                title: 'Sorting Question',
+                text: 'Player arranges items in correct order. Enter items and specify correct order.',
+                guide: '<p><strong>Options:</strong> Add items to sort</p><p><strong>Correct:</strong> Enter correct order (0,1,2,3...)</p><p><em>Example: Sort: C, A, B → Correct order: 1,2,0 (A,B,C)</em></p>'
+            },
+            'MATCHING': {
+                title: 'Matching Question',
+                text: 'Player matches pairs (left item to right item).',
+                guide: '<p><strong>Pairs:</strong> Add left-right pairs</p><p><strong>Correct:</strong> Auto-set based on pairs</p><p><em>Example: France-Paris, Germany-Berlin</em></p>'
+            }
+        };
+
+        function updateFormForType() {
+            const type = document.getElementById('questionType').value;
+            const optionsSection = document.getElementById('optionsSection');
+            const matchingSection = document.getElementById('matchingSection');
+            const correctSection = document.getElementById('correctAnswerSection');
+            const helpBox = document.getElementById('typeHelp');
+            const formatGuide = document.getElementById('formatGuide');
+            const correctContainer = document.getElementById('correctAnswerContainer');
+
+            // Reset
+            optionsSection.style.display = 'none';
+            matchingSection.style.display = 'none';
+            helpBox.style.display = 'none';
+
+            if (!type) {
+                formatGuide.innerHTML = '<p class="text-muted">Select a question type to see the format guide.</p>';
+                return;
+            }
+
+            // Show help
+            if (typeHelps[type]) {
+                helpBox.style.display = 'block';
+                document.getElementById('typeHelpTitle').textContent = typeHelps[type].title;
+                document.getElementById('typeHelpText').textContent = typeHelps[type].text;
+                formatGuide.innerHTML = typeHelps[type].guide;
+            }
+
+            switch(type) {
+                case 'SINGLE_CHOICE':
+                case 'DROPDOWN':
+                    optionsSection.style.display = 'block';
+                    correctContainer.innerHTML = '<p class="text-muted">Select correct option above (radio button)</p>';
+                    if (options.length === 0) { options = ['', '']; renderOptions(); }
+                    break;
+
+                case 'MULTIPLE_CHOICE':
+                    optionsSection.style.display = 'block';
+                    correctContainer.innerHTML = '<p class="text-muted">Check all correct options above (checkboxes)</p>';
+                    if (options.length === 0) { options = ['', '', '', '']; renderOptions(); }
+                    break;
+
+                case 'TRUE_FALSE':
+                    optionsSection.style.display = 'block';
+                    options = ['True', 'False'];
+                    renderOptions();
+                    correctContainer.innerHTML = '<p class="text-muted">Select True or False above</p>';
+                    break;
+
+                case 'SHORT_ANSWER':
+                    correctContainer.innerHTML = '<input type="text" class="form-control" id="correctAnswerInput" placeholder="Type correct answer" required>';
+                    break;
+
+                case 'FILL_BLANKS':
+                    optionsSection.style.display = 'block';
+                    correctContainer.innerHTML = '<p class="text-muted">Enter correct answer for each blank above</p>';
+                    if (options.length === 0) { options = ['Blank 1']; renderOptions(); }
+                    break;
+
+                case 'SORTING':
+                    optionsSection.style.display = 'block';
+                    correctContainer.innerHTML = `
+                        <input type="text" class="form-control" id="correctOrderInput"
+                               placeholder="Enter correct order (e.g., 2,0,1,3)" required>
+                        <div class="form-text">Enter comma-separated indexes (0-based) in correct order</div>
+                    `;
+                    if (options.length === 0) { options = ['', '', '']; renderOptions(); }
+                    break;
+
+                case 'MATCHING':
+                    matchingSection.style.display = 'block';
+                    correctContainer.innerHTML = '<p class="text-muted">Pairs define correct matching automatically</p>';
+                    if (pairs.length === 0) { pairs = [{left: '', right: ''}, {left: '', right: ''}]; renderPairs(); }
+                    break;
+            }
+        }
+
+        function renderOptions() {
+            const type = document.getElementById('questionType').value;
+            const container = document.getElementById('optionsContainer');
+            container.innerHTML = '';
+
+            const isRadio = ['SINGLE_CHOICE', 'TRUE_FALSE', 'DROPDOWN'].includes(type);
+            const isFillBlanks = type === 'FILL_BLANKS';
+            const isSorting = type === 'SORTING';
+
+            options.forEach((opt, idx) => {
+                const isCorrect = correctIndexes.includes(idx);
+                const row = document.createElement('div');
+                row.className = 'option-row d-flex align-items-center gap-2' + (isCorrect ? ' correct' : '');
+                row.innerHTML = `
+                    <span class="badge bg-secondary">${idx + 1}</span>
+                    ${isFillBlanks ? `
+                        <div class="flex-grow-1 row g-2">
+                            <div class="col-5">
+                                <input type="text" class="form-control form-control-sm"
+                                       value="${escapeHtml(opt)}" onchange="updateOption(${idx}, this.value)"
+                                       placeholder="Blank label">
+                            </div>
+                            <div class="col-7">
+                                <input type="text" class="form-control form-control-sm"
+                                       id="blankAnswer${idx}" placeholder="Correct answer for this blank"
+                                       value="${correctIndexes[idx] || ''}">
+                            </div>
+                        </div>
+                    ` : `
+                        <input type="text" class="form-control form-control-sm flex-grow-1"
+                               value="${escapeHtml(opt)}" onchange="updateOption(${idx}, this.value)"
+                               placeholder="Option text" ${type === 'TRUE_FALSE' ? 'readonly' : ''}>
+                    `}
+                    ${!isFillBlanks && !isSorting ? `
+                        <div class="form-check">
+                            <input class="form-check-input" type="${isRadio ? 'radio' : 'checkbox'}"
+                                   name="correctOption" id="correct${idx}" ${isCorrect ? 'checked' : ''}
+                                   onchange="toggleCorrect(${idx}, this.checked)">
+                            <label class="form-check-label small" for="correct${idx}">Correct</label>
+                        </div>
+                    ` : ''}
+                    ${type !== 'TRUE_FALSE' ? `
+                        <button type="button" class="btn btn-outline-danger btn-sm" onclick="removeOption(${idx})">
+                            <i class="bi bi-x"></i>
+                        </button>
+                    ` : ''}
+                `;
+                container.appendChild(row);
+            });
+        }
+
+        function renderPairs() {
+            const container = document.getElementById('pairsContainer');
+            container.innerHTML = '';
+
+            pairs.forEach((pair, idx) => {
+                const row = document.createElement('div');
+                row.className = 'pair-row d-flex align-items-center gap-2';
+                row.innerHTML = `
+                    <span class="badge bg-info">${idx + 1}</span>
+                    <input type="text" class="form-control form-control-sm"
+                           value="${escapeHtml(pair.left)}" onchange="updatePair(${idx}, 'left', this.value)"
+                           placeholder="Left item">
+                    <i class="bi bi-arrow-right"></i>
+                    <input type="text" class="form-control form-control-sm"
+                           value="${escapeHtml(pair.right)}" onchange="updatePair(${idx}, 'right', this.value)"
+                           placeholder="Right item">
+                    <button type="button" class="btn btn-outline-danger btn-sm" onclick="removePair(${idx})">
+                        <i class="bi bi-x"></i>
+                    </button>
+                `;
+                container.appendChild(row);
+            });
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        function addOption() {
+            options.push('');
+            renderOptions();
+        }
+
+        function removeOption(idx) {
+            if (options.length > 2) {
+                options.splice(idx, 1);
+                correctIndexes = correctIndexes.filter(i => i !== idx).map(i => i > idx ? i - 1 : i);
+                renderOptions();
+            }
+        }
+
+        function updateOption(idx, value) {
+            options[idx] = value;
+        }
+
+        function toggleCorrect(idx, checked) {
+            const type = document.getElementById('questionType').value;
+            if (['SINGLE_CHOICE', 'TRUE_FALSE', 'DROPDOWN'].includes(type)) {
+                correctIndexes = checked ? [idx] : [];
+            } else {
+                if (checked) {
+                    if (!correctIndexes.includes(idx)) correctIndexes.push(idx);
+                } else {
+                    correctIndexes = correctIndexes.filter(i => i !== idx);
+                }
+            }
+            renderOptions();
+        }
+
+        function updateCorrectDisplay() {
+            renderOptions();
+            renderPairs();
+        }
+
+        function addPair() {
+            pairs.push({left: '', right: ''});
+            renderPairs();
+        }
+
+        function removePair(idx) {
+            if (pairs.length > 2) {
+                pairs.splice(idx, 1);
+                renderPairs();
+            }
+        }
+
+        function updatePair(idx, side, value) {
+            pairs[idx][side] = value;
+        }
+
+        function prepareSubmit() {
+            const type = document.getElementById('questionType').value;
+            let answerOptionsJson = '[]';
+            let correctAnswerJson = '';
+
+            switch(type) {
+                case 'SINGLE_CHOICE':
+                case 'DROPDOWN':
+                case 'TRUE_FALSE':
+                    answerOptionsJson = JSON.stringify(options);
+                    correctAnswerJson = correctIndexes.length > 0 ? String(correctIndexes[0]) : '0';
+                    break;
+
+                case 'MULTIPLE_CHOICE':
+                    answerOptionsJson = JSON.stringify(options);
+                    correctAnswerJson = JSON.stringify(correctIndexes.sort());
+                    break;
+
+                case 'SHORT_ANSWER':
+                    answerOptionsJson = '[]';
+                    const shortAnswer = document.getElementById('correctAnswerInput').value;
+                    correctAnswerJson = shortAnswer;
+                    break;
+
+                case 'FILL_BLANKS':
+                    answerOptionsJson = JSON.stringify(options);
+                    const blankAnswers = options.map((_, idx) =>
+                        document.getElementById('blankAnswer' + idx)?.value || ''
+                    );
+                    correctAnswerJson = JSON.stringify(blankAnswers);
+                    break;
+
+                case 'SORTING':
+                    answerOptionsJson = JSON.stringify(options);
+                    const orderInput = document.getElementById('correctOrderInput')?.value || '';
+                    const orderArray = orderInput.split(',').map(s => {
+                        const num = parseInt(s.trim());
+                        return isNaN(num) ? null : num - 1; // Odejmujemy 1 tutaj!
+                    }).filter(n => n !== null);
+                    correctAnswerJson = JSON.stringify(orderArray);
+                    break;
+
+                case 'MATCHING':
+                    answerOptionsJson = JSON.stringify(pairs);
+                    const matchingCorrect = pairs.map((_, idx) => ({left: String(idx), right: String(idx)}));
+                    correctAnswerJson = JSON.stringify(matchingCorrect);
+                    break;
+            }
+
+            document.getElementById('answerOptions').value = answerOptionsJson;
+            document.getElementById('correctAnswer').value = correctAnswerJson;
+        }
+
+        function previewQuestion() {
+            prepareSubmit();
+            const type = document.getElementById('questionType').value;
+            const text = document.getElementById('questionText').value;
+            const points = document.getElementById('points').value;
+
+            let preview = `
+                <div class="card">
+                    <div class="card-body">
+                        <h5>${escapeHtml(text) || 'No question text'}</h5>
+                        <p class="text-muted">Type: ${type} | Points: ${points}</p>
+                        <hr>
+            `;
+
+            // Render preview based on type
+            switch(type) {
+                case 'SINGLE_CHOICE':
+                case 'TRUE_FALSE':
+                    options.forEach((opt, idx) => {
+                        const isCorrect = correctIndexes.includes(idx);
+                        preview += `<div class="form-check ${isCorrect ? 'text-success' : ''}">
+                            <input class="form-check-input" type="radio" disabled ${isCorrect ? 'checked' : ''}>
+                            <label class="form-check-label">${escapeHtml(opt)} ${isCorrect ? '<i class="bi bi-check-circle-fill"></i>' : ''}</label>
+                        </div>`;
+                    });
+                    break;
+
+                case 'MULTIPLE_CHOICE':
+                    options.forEach((opt, idx) => {
+                        const isCorrect = correctIndexes.includes(idx);
+                        preview += `<div class="form-check ${isCorrect ? 'text-success' : ''}">
+                            <input class="form-check-input" type="checkbox" disabled ${isCorrect ? 'checked' : ''}>
+                            <label class="form-check-label">${escapeHtml(opt)} ${isCorrect ? '<i class="bi bi-check-circle-fill"></i>' : ''}</label>
+                        </div>`;
+                    });
+                    break;
+
+                case 'DROPDOWN':
+                    preview += '<select class="form-select" disabled>';
+                    options.forEach((opt, idx) => {
+                        const isCorrect = correctIndexes.includes(idx);
+                        preview += `<option ${isCorrect ? 'selected' : ''}>${escapeHtml(opt)}</option>`;
+                    });
+                    preview += '</select>';
+                    break;
+
+                case 'SHORT_ANSWER':
+                    const answer = document.getElementById('correctAnswerInput')?.value || '';
+                    preview += `<input type="text" class="form-control" disabled placeholder="Type answer here">
+                        <p class="mt-2 text-success"><strong>Correct:</strong> ${escapeHtml(answer)}</p>`;
+                    break;
+
+                case 'FILL_BLANKS':
+                    preview += '<div class="mb-2">';
+                    options.forEach((label, idx) => {
+                        const ans = document.getElementById('blankAnswer' + idx)?.value || '';
+                        preview += `<div class="mb-2"><strong>${escapeHtml(label)}:</strong>
+                            <input type="text" class="form-control form-control-sm d-inline-block w-50" disabled>
+                            <span class="text-success ms-2">→ ${escapeHtml(ans)}</span></div>`;
+                    });
+                    preview += '</div>';
+                    break;
+
+                case 'SORTING':
+                    preview += '<p class="text-muted">Drag items to correct order:</p>';
+                    options.forEach((opt, idx) => {
+                        preview += `<div class="alert alert-secondary py-2 mb-1">${idx + 1}. ${escapeHtml(opt)}</div>`;
+                    });
+                    const order = document.getElementById('correctOrderInput')?.value || '';
+                    preview += `<p class="text-success mt-2"><strong>Correct order:</strong> ${order}</p>`;
+                    break;
+
+                case 'MATCHING':
+                    preview += '<div class="row"><div class="col-6"><strong>Left</strong></div><div class="col-6"><strong>Right</strong></div></div>';
+                    pairs.forEach(pair => {
+                        preview += `<div class="row mb-1">
+                            <div class="col-6"><span class="badge bg-primary">${escapeHtml(pair.left)}</span></div>
+                            <div class="col-6"><span class="badge bg-success">${escapeHtml(pair.right)}</span></div>
+                        </div>`;
+                    });
+                    break;
+            }
+
+            preview += '</div></div>';
+            document.getElementById('previewContent').innerHTML = preview;
+            new bootstrap.Modal(document.getElementById('previewModal')).show();
+        }
+    </script>
+</div>
+</body>
+</html>
