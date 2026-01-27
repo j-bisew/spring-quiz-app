@@ -317,7 +317,14 @@ public class QuestionService {
     }
 
     private boolean validateShortAnswerAnswer(String correctAnswer, String userAnswer) {
-        return correctAnswer.trim().equalsIgnoreCase(userAnswer.trim());
+        // Clean JSON formatting (remove [" "], quotes, brackets)
+        String cleanCorrect = correctAnswer
+                .replace("[", "")
+                .replace("]", "")
+                .replace("\"", "")
+                .trim();
+
+        return cleanCorrect.equalsIgnoreCase(userAnswer.trim());
     }
 
     private boolean validateFillBlanksAnswer(String correctAnswer, String userAnswer) throws JsonProcessingException {

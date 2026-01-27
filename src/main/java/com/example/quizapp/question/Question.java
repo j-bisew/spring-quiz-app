@@ -3,7 +3,6 @@ package com.example.quizapp.question;
 import com.example.quizapp.quiz.Quiz;
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.Type;
 
 @Entity
 @Table(name = "questions")
@@ -20,11 +19,11 @@ public class Question {
 
 //     * Type of question (SINGLE_CHOICE, MULTIPLE_CHOICE, etc.)
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 50)
+    @Column(name="question_type", nullable = false, length = 50)
     private QuestionType questionType;
 
 //     * The question text
-    @Column(nullable = false, length = 1000)
+    @Column(name = "question_text", nullable = false, length = 1000)
     private String questionText;
 
 //     * Points awarded for correct answer

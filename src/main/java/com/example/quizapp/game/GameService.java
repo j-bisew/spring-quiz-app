@@ -5,10 +5,7 @@ import com.example.quizapp.common.exception.QuizNotFoundException;
 import com.example.quizapp.common.exception.ResourceNotFoundException;
 import com.example.quizapp.player.Player;
 import com.example.quizapp.player.PlayerRepository;
-import com.example.quizapp.question.Question;
-import com.example.quizapp.question.QuestionDto;
-import com.example.quizapp.question.QuestionMapper;
-import com.example.quizapp.question.QuestionService;
+import com.example.quizapp.question.*;
 import com.example.quizapp.quiz.Quiz;
 import com.example.quizapp.quiz.QuizRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -163,8 +160,8 @@ public class GameService {
             detailedAnswers.add(GameResultDto.DetailedAnswer.builder()
                     .questionId(question.getId())
                     .questionText(question.getQuestionText())
-                    .userAnswer(submission.getUserAnswer())
-                    .correctAnswer(question.getCorrectAnswer())
+                    .userAnswer(formatAnswerForDisplay(question, submission.getUserAnswer()))
+                    .correctAnswer(formatAnswerForDisplay(question, question.getCorrectAnswer()))
                     .isCorrect(isCorrect)
                     .pointsEarned(pointsEarned)
                     .explanation(question.getExplanation())
@@ -386,5 +383,64 @@ public class GameService {
     private Quiz quizExists(Long quizId) {
         return quizRepository.findById(quizId)
                 .orElseThrow(() -> new QuizNotFoundException(quizId));
+    }
+
+    // W GameService.java dodaj metodę pomocniczą:
+
+    private String formatAnswerForDisplay(Question question, String rawAnswer) {
+        if (rawAnswer == null || rawAnswer.isEmpty()) return "Brak odpowiedzi";
+
+        try {
+            // Dla Single/Multiple Choice/Dropdown - zamień indeks na tekst opcji
+            if (List.of(QuestionType.SINGLE_CHOICE, QuestionType.MULTIPLE_CHOICE, QuestionType.DROPDOWN).contains(question.getQuestionType())) {
+                List<String> options = objectMapper.readValue(question.getAnswerOptions(), new TypeReference<>() {});
+
+                // Jeśli to pojedynczy indeks (np. "1")
+                if (!rawAnswer.startsWith("[")) {
+                    int idx = Integer.parseInt(rawAnswer);
+                    return idx >= 0 && idx < options.size() ? options.get(idx) : rawAnswer;
+                }
+                // Jeśli to lista indeksów (np. "[0, 2]")
+                List<Integer> indices = objectMapper.readValue(rawAnswer, new TypeReference<>() {});
+                return indices.stream()
+                        .map(i -> (i >= 0 && i < options.size()) ? options.get(i) : String.valueOf(i))
+                        .collect(Collectors.joining(", "));
+            }
+
+            // Dla Matching - zamień pary indeksów na tekst
+            if (question.getQuestionType() == QuestionType.MATCHING) {
+                List<Map<String, String>> pairs = objectMapper.readValue(question.getAnswerOptions(), new TypeReference<>() {});
+                List<Map<String, String>> userMatches = objectMapper.readValue(rawAnswer, new TypeReference<>() {});
+
+                return userMatches.stream().map(match -> {
+                    int leftIdx = Integer.parseInt(match.get("left"));
+                    int rightIdx = Integer.parseInt(match.get("right"));
+                    // Pobierz tekst z oryginalnych par
+                    String leftText = pairs.get(leftIdx).get("left");
+                    String rightText = pairs.get(rightIdx).get("right");
+                    return leftText + " -> " + rightText;
+                }).collect(Collectors.joining(", "));
+            }
+
+            // Dla Sorting - zamień indeksy na elementy
+            if (question.getQuestionType() == QuestionType.SORTING) {
+                List<String> items = objectMapper.readValue(question.getAnswerOptions(), new TypeReference<>() {});
+                List<Integer> order = objectMapper.readValue(rawAnswer, new TypeReference<>() {});
+                return order.stream()
+                        .map(i -> (i >= 0 && i < items.size()) ? items.get(i) : String.valueOf(i))
+                        .collect(Collectors.joining(" -> "));
+            }
+
+            // True/False
+            if (question.getQuestionType() == QuestionType.TRUE_FALSE) {
+                return rawAnswer.equals("0") ? "True" : "False";
+            }
+
+        } catch (Exception e) {
+            log.error("Błąd formatowania odpowiedzi", e);
+        }
+
+        // Jeśli formatowanie się nie uda lub typ jest inny (np. SHORT_ANSWER), zwróć oryginał
+        return rawAnswer;
     }
 }
